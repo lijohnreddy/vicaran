@@ -1,0 +1,221 @@
+---
+description: 
+globs: *.tsx,*.ts
+alwaysApply: false
+---
+# No @ts-expect-error or TypeScript Error Bypasses
+
+## Overview
+Never use `@ts-expect-error`, `@ts-ignore`, or similar TypeScript error suppression directives. These directives mask type safety issues and can hide real problems in the codebase.
+
+TypeScript errors should be resolved properly by fixing the underlying type issues, not suppressed.
+
+## Rule: Never bypass TypeScript errors
+1. **Never use** `@ts-expect-error` directives
+2. **Never use** `@ts-ignore` directives  
+3. **Never use** `// @ts-nocheck` directives
+4. **Fix the root cause** instead of suppressing errors
+
+## Common Violations and Solutions
+
+### ❌ BAD: Using @ts-expect-error
+```typescript
+// @ts-expect-error - DialogContent has type definition issues
+<DialogContent className="max-w-lg">
+  <div>Content</div>
+</DialogContent>
+```
+
+### ✅ GOOD: Fix the type issue properly
+```typescript
+// Option 1: Use proper component composition
+<DialogContent>
+  <div className="max-w-lg">
+    <div>Content</div>
+  </div>
+</DialogContent>
+
+// Option 2: Create a wrapper component with proper types
+const StyledDialogContent = ({ children, ...props }) => (
+  <DialogContent {...props}>
+    {children}
+  </DialogContent>
+);
+
+// Option 3: Use a type assertion with proper interface
+<DialogContent {...({className: "max-w-lg"} as ComponentProps<typeof DialogContent>)}>
+  <div>Content</div>
+</DialogContent>
+```
+
+### ❌ BAD: Ignoring type errors
+```typescript
+// @ts-ignore
+const result = someFunction(invalidArgument);
+```
+
+### ✅ GOOD: Fix the types
+```typescript
+// Fix the argument type
+const result = someFunction(validArgument);
+
+// Or create proper interface
+interface ValidInput {
+  // define proper structure
+}
+const validInput: ValidInput = { /* proper data */ };
+const result = someFunction(validInput);
+```
+
+## When You Think You Need TypeScript Suppression
+
+### Use proper type assertions
+```typescript
+// ❌ BAD
+// @ts-expect-error
+const data = response.data;
+
+// ✅ GOOD
+const data = response.data as ExpectedType;
+```
+
+### Define missing interfaces
+```typescript
+// ❌ BAD
+// @ts-ignore - third party library types missing
+library.someMethod(data);
+
+// ✅ GOOD
+interface LibraryMethod {
+  someMethod: (data: DataType) => ReturnType;
+}
+(library as LibraryMethod).someMethod(data);
+```
+
+### Use unknown for truly unknown data
+```typescript
+// ❌ BAD
+// @ts-expect-error
+function processData(data: any) {
+  return data.someProperty;
+}
+
+// ✅ GOOD
+function processData(data: unknown) {
+  if (typeof data === 'object' && data !== null && 'someProperty' in data) {
+    return (data as { someProperty: unknown }).someProperty;
+  }
+  throw new Error('Invalid data format');
+}
+```
+
+## Specific Project Patterns
+
+### For shadcn/ui components with type issues
+```typescript
+// ❌ BAD
+// @ts-expect-error - DialogContent has type issues
+<DialogContent className="custom-class">
+
+// ✅ GOOD - Use component composition
+<DialogContent>
+  <div className="custom-class">
+    {/* content */}
+  </div>
+</DialogContent>
+
+// ✅ GOOD - Create a typed wrapper
+const TypedDialogContent = DialogContent as React.ComponentType<{
+  className?: string;
+  children?: React.ReactNode;
+}>;
+```
+
+### For form components
+```typescript
+// ❌ BAD
+// @ts-expect-error
+<Label htmlFor="email">Email</Label>
+
+// ✅ GOOD
+<Label {...({htmlFor: "email"} as LabelHTMLAttributes<HTMLLabelElement>)}>
+  Email
+</Label>
+```
+
+## Alternative Solutions
+
+### 1. Component Wrappers
+Create properly typed wrapper components when shadcn components have type issues:
+
+```typescript
+interface StyledDialogProps {
+  className?: string;
+  children: React.ReactNode;
+}
+
+const StyledDialog: React.FC<StyledDialogProps> = ({ className, children }) => (
+  <DialogContent>
+    <div className={className}>
+      {children}
+    </div>
+  </DialogContent>
+);
+```
+
+### 2. Type Assertions with Interfaces
+Use specific type assertions instead of error suppression:
+
+```typescript
+// Define the expected interface
+interface DialogProps {
+  className?: string;
+  children?: React.ReactNode;
+}
+
+// Use proper type assertion
+<DialogContent {...({className: "max-w-lg"} as DialogProps)}>
+```
+
+### 3. Utility Type Functions
+Create utility functions for complex type operations:
+
+```typescript
+function withClassName<T>(
+  component: T, 
+  className: string
+): T & { className: string } {
+  return { ...component, className };
+}
+```
+
+## ESLint Configuration
+Add this to your ESLint config to prevent TypeScript error suppression:
+
+```json
+{
+  "rules": {
+    "@typescript-eslint/ban-ts-comment": "error",
+    "@typescript-eslint/prefer-ts-expect-error": "off"
+  }
+}
+```
+
+## Exceptions (None)
+There are **NO acceptable exceptions** for using TypeScript error suppression directives in this codebase. Every type error should be resolved properly.
+
+If you encounter type errors:
+1. **Understand the root cause** of the type mismatch
+2. **Fix the types** by defining proper interfaces or using correct types
+3. **Refactor the code** if needed to work with the type system
+4. **Create wrapper components** if working around third-party library limitations
+
+## Checklist for the Assistant
+- [ ] Never suggest `@ts-expect-error` in any context
+- [ ] Never suggest `@ts-ignore` in any context
+- [ ] Always propose proper type solutions instead of suppression
+- [ ] Create wrapper components when needed for type safety
+- [ ] Use proper type assertions with defined interfaces
+- [ ] Fix the root cause of type errors, don't mask them
+
+Remember: TypeScript errors exist to prevent runtime issues. Suppressing them defeats the purpose of using TypeScript and can introduce bugs.

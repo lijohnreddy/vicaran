@@ -1,0 +1,175 @@
+---
+trigger: glob
+globs: *.py
+---
+
+# Never Use `# type: ignore` for Database Extensions - Use Proper TYPE_CHECKING Imports
+
+## Context
+Database extensions like `pgvector`, `psycopg2`, and specialized PostgreSQL libraries often lack type stubs. Using `# type: ignore` comments to suppress these import warnings is a code smell that reduces type safety and makes code harder to maintain.
+
+Instead of suppressing type checker warnings, we should use proper conditional imports with `TYPE_CHECKING` blocks to provide clean type annotations while maintaining runtime functionality.
+
+## Rule
+1. **Never use** `# type: ignore[import-untyped]` for database extension imports
+2. **Always use** `TYPE_CHECKING` conditional imports for type-only dependencies
+3. **Provide explicit type annotations** using `Any` or proper protocols when needed
+4. **Document why** type stubs are unavailable and the workaround used
+
+## Common Database Extensions Without Type Stubs
+- `pgvector.psycopg2` - PostgreSQL vector similarity search
+- `pgvector.psycopg` - PostgreSQL vector for psycopg3
+- `pgvector.asyncpg` - PostgreSQL vector for asyncpg
+- Custom PostgreSQL extensions
+- Specialized database adapters
+
+## Proper Solutions
+
+### ❌ Bad (Using type ignore)
+```python
+from pgvector.psycopg2 import register_vector  # type: ignore[import-untyped]
+
+def setup_database(conn):
+    register_vector(conn)
+```
+
+### ✅ Good (Conditional import with TYPE_CHECKING)
+```python
+from typing import TYPE_CHECKING, Any
+
+# Runtime import - works at runtime but not visible to type checker
+try:
+    from pgvector.psycopg2 import register_vector
+except ImportError:
+    register_vector = None
+
+if TYPE_CHECKING:
+    # Type-only import for better documentation
+    from typing import Callable
+    # Define the signature we expect
+    register_vector: Callable[[Any], None]
+
+def setup_database(conn: Any) -> None:
+    """Setup database with vector support.
+    
+    Note: pgvector.psycopg2 lacks type stubs, so we use conditional imports
+    to maintain type safety while preserving runtime functionality.
+    """
+    if register_vector is not None:
+        register_vector(conn)
+```
+
+### ✅ Alternative (Runtime import with explicit typing)
+```python
+from typing import Any, Callable
+import importlib
+
+def get_vector_register() -> Callable[[Any], None] | None:
+    """Dynamically import pgvector register_vector function.
+    
+    Returns None if pgvector is not available.
+    Note: pgvector.psycopg2 lacks official type stubs.
+    """
+    try:
+        module = importlib.import_module('pgvector.psycopg2')
+        return getattr(module, 'register_vector')
+    except ImportError:
+        return None
+
+def setup_database(conn: Any) -> None:
+    """Setup database connection with vector type registration."""
+    register_func = get_vector_register()
+    if register_func:
+        register_func(conn)
+```
+
+### ✅ For Multiple Database Adapters
+```python
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    # Define expected protocol for vector registration
+    class VectorRegisterProtocol(Protocol):
+        def __call__(self, connection: Any) -> None: ...
+
+# Runtime imports with fallbacks
+def get_register_vector_func() -> "VectorRegisterProtocol | None":
+    """Get appropriate register_vector function based on available adapter."""
+    try:
+        # Try psycopg2 first
+        from pgvector.psycopg2 import register_vector
+        return register_vector
+    except ImportError:
+        pass
+    
+    try:
+        # Try psycopg3
+        from pgvector.psycopg import register_vector
+        return register_vector
+    except ImportError:
+        pass
+    
+    return None
+
+def setup_database_vectors(conn: Any) -> None:
+    """Register vector types with database connection."""
+    register_func = get_register_vector_func()
+    if register_func:
+        register_func(conn)
+    else:
+        logger.warning("pgvector not available - vector operations will not work")
+```
+
+## Protocol Definition Approach
+For better type safety, define protocols that match the expected interface:
+
+```python
+from typing import Protocol, Any
+
+class DatabaseConnection(Protocol):
+    """Protocol for database connections that support vector registration."""
+    def execute(self, query: str, params: Any = None) -> Any: ...
+    def cursor(self) -> Any: ...
+
+class VectorRegistrar(Protocol):
+    """Protocol for vector type registration functions."""
+    def __call__(self, conn: DatabaseConnection) -> None: ...
+
+# Use the protocol in function signatures
+def setup_vectors(conn: DatabaseConnection, registrar: VectorRegistrar) -> None:
+    """Setup vector types on database connection."""
+    registrar(conn)
+```
+
+## Documentation Requirements
+When using conditional imports for missing type stubs:
+
+1. **Add docstring explaining** why conditional imports are used
+2. **Document the missing type stubs** in code comments
+3. **Specify the expected interface** using protocols or type hints
+4. **Handle import failures gracefully** with appropriate fallbacks
+
+## Benefits of This Approach
+- ✅ **No type suppression** - maintains type checking benefits
+- ✅ **Runtime safety** - handles missing dependencies gracefully  
+- ✅ **Clear documentation** - explains why workaround is needed
+- ✅ **Maintainable** - easy to remove when type stubs become available
+- ✅ **Testable** - can mock the imported functions easily
+
+## When Type Stubs Become Available
+When official type stubs are released:
+1. Install the type stubs package (e.g., `types-pgvector`)
+2. Remove the conditional import workaround
+3. Use direct imports with proper type annotations
+4. Update documentation to reflect the change
+
+## Checklist for the Assistant
+- [ ] Never suggest `# type: ignore[import-untyped]` for database extensions
+- [ ] Use `TYPE_CHECKING` conditional imports for type safety
+- [ ] Provide proper type annotations using protocols or `Any`
+- [ ] Document why the workaround is needed
+- [ ] Handle import failures gracefully with fallbacks
+- [ ] Suggest creating protocols for better type safety
+- [ ] Check if type stubs exist before implementing workarounds
+
+This ensures code maintains strong type safety while handling the reality of missing type stubs in the database extension ecosystem.

@@ -1,0 +1,62 @@
+---
+globs: *.tsx
+alwaysApply: false
+---
+# Next.js 15 App Router - Redirect Outside Try/Catch
+
+## Rule: Never use redirect() inside try/catch blocks
+
+### ❌ DON'T: Use redirect() inside try/catch blocks
+```javascript
+// WRONG - Don't do this
+try {
+  const session = await createSession();
+  redirect(`/chat/${session.id}`); // This will cause issues
+} catch (error) {
+  // Handle error
+}
+```
+
+### ✅ DO: Separate redirect from try/catch blocks
+```javascript
+// CORRECT - Separate concerns
+let session;
+try {
+  session = await createSession();
+} catch (error) {
+  // Handle session creation error
+  return <ErrorComponent />;
+}
+
+// Redirect outside try/catch (Next.js 15 best practice)
+redirect(`/chat/${session.id}`);
+```
+
+## Why This Matters
+
+1. **`redirect()` throws an error** - It throws a `NEXT_REDIRECT` error to terminate rendering
+2. **Should be called OUTSIDE try/catch** - Next.js 15 docs explicitly state this for Server Actions and Route Handlers  
+3. **Has `never` return type** - Designed to stop execution completely
+4. **Prevents infinite loops** - Proper error handling prevents redirect loops in layouts and components
+
+## When to Apply This Rule
+
+- Server Components with conditional redirects
+- Layout components handling authentication/session logic  
+- Route handlers that need to redirect based on business logic
+- Any server-side redirect that depends on async operations that might fail
+
+## Pattern to Follow
+
+1. **Separate business logic from control flow**
+   - Put fallible operations (API calls, database queries) in try/catch
+   - Put redirect outside as control flow mechanism
+
+2. **Handle errors appropriately**
+   - Use try/catch for business logic errors (session creation, data fetching, etc.)
+   - Return error UI components when business logic fails
+   - Use redirect as control flow outside error handling
+
+3. **Let redirect errors bubble naturally**
+   - Don't catch redirect errors - they're meant to terminate rendering
+   - The Next.js framework handles NEXT_REDIRECT errors properly

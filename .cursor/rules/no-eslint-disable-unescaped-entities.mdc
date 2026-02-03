@@ -1,0 +1,38 @@
+---
+description: 
+globs: *.tsx,*.ts
+alwaysApply: false
+---
+# Do NOT Disable `react/no-unescaped-entities`
+
+## Context
+The linter rule `react/no-unescaped-entities` exists to prevent rendering raw apostrophes (`'`) and quotation marks (`"`) in JSX/HTML text nodes—characters that can break HTML or lead to XSS issues.
+
+Some code has attempted to silence this rule with a file-level directive:
+
+```tsx
+/* eslint-disable react/no-unescaped-entities */
+```
+
+This **must never be used**. Doing so hides real problems instead of addressing them.
+
+## Rule
+1. **Never add** `/* eslint-disable react/no-unescaped-entities */` (or any variant such as `/* eslint-disable-next-line react/no-unescaped-entities */`).
+2. When the linter flags unescaped characters, **fix the root cause** by following the "Escape Apostrophes and Quotes in JSX/HTML" rule:
+   • Replace the character with an HTML entity (`&rsquo;`, `&quot;`, etc.).  
+   • Or embed the text in a JavaScript string expression that properly escapes it.  
+   • Or rephrase the text to avoid the character.
+3. Ensure the file passes linting **without** disabling the rule.
+
+## Examples
+| ❌ Bad | ✅ Good |
+|--------|---------|
+| `/* eslint-disable react/no-unescaped-entities */` | `<p>Sarah&rsquo;s workflow</p>` |
+| `// eslint-disable-next-line react/no-unescaped-entities` | `<blockquote>&ldquo;Time-saving&rdquo; tools.</blockquote>` |
+
+## Checklist for the Assistant
+- [ ] Never introduce any form of `eslint-disable` for `react/no-unescaped-entities`.
+- [ ] Instead, correct unescaped characters as described in the escaping rule.
+- [ ] Verify that the linter passes cleanly after your changes.
+
+Violating this rule will lead to linter failures and must be avoided. 

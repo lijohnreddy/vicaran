@@ -1,0 +1,329 @@
+---
+globs: *.ts
+alwaysApply: false
+---
+# TypeScript Explicit Return Types - All Functions Must Have Return Types
+
+## Context
+TypeScript functions without explicit return types can lead to unpredictable behavior and runtime errors. When functions lack return type annotations, TypeScript infers the return type, which can sometimes be `undefined` or more permissive than intended. This creates situations where consumers of the function don't know what to expect, leading to errors like `Cannot read properties of undefined`.
+
+Explicit return types provide:
+- **Clear contracts** between functions and their consumers
+- **Early error detection** when function implementations change
+- **Better IDE support** with accurate autocomplete and error checking
+- **Prevention of accidental undefined returns** that cause runtime errors
+- **Improved refactoring safety** with compile-time guarantees
+
+## Rule
+1. **ALL TypeScript functions MUST have explicit return types** - no exceptions.
+2. **Never rely on TypeScript's return type inference** for function declarations.
+3. **Use discriminated unions** for functions that can return different result types.
+4. **Be specific with types** - avoid `any`, `unknown`, or overly broad types.
+5. **Include Promise types** for async functions.
+6. **Use proper error handling types** for functions that can fail.
+
+## Function Types That Need Return Types
+
+### ✅ Regular Functions
+```typescript
+// ❌ Bad - no return type
+function getUserData(id: string) {
+  return fetchUser(id);
+}
+
+// ✅ Good - explicit return type
+function getUserData(id: string): Promise<User | null> {
+  return fetchUser(id);
+}
+```
+
+### ✅ Arrow Functions
+```typescript
+// ❌ Bad - no return type
+const calculateTotal = (items: Item[]) => {
+  return items.reduce((sum, item) => sum + item.price, 0);
+};
+
+// ✅ Good - explicit return type
+const calculateTotal = (items: Item[]): number => {
+  return items.reduce((sum, item) => sum + item.price, 0);
+};
+```
+
+### ✅ Async Functions
+```typescript
+// ❌ Bad - no return type
+async function saveUser(userData: UserData) {
+  const result = await db.users.insert(userData);
+  return result;
+}
+
+// ✅ Good - explicit return type
+async function saveUser(userData: UserData): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    const result = await db.users.insert(userData);
+    return { success: true, userId: result.id };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+### ✅ Server Actions
+```typescript
+// ❌ Bad - no return type
+export async function getCurrentUserUsage() {
+  try {
+    const result = await getUsageStats();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: "Failed to fetch" };
+  }
+}
+
+// ✅ Good - explicit return type with discriminated union
+export type GetCurrentUserUsageResult = 
+  | { success: true; data: UsageStats }
+  | { success: false; error: string };
+
+export async function getCurrentUserUsage(): Promise<GetCurrentUserUsageResult> {
+  try {
+    const result = await getUsageStats();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: "Failed to fetch" };
+  }
+}
+```
+
+### ✅ API Route Handlers
+```typescript
+// ❌ Bad - no return type
+export async function GET(request: NextRequest) {
+  const data = await fetchData();
+  return NextResponse.json(data);
+}
+
+// ✅ Good - explicit return type
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  try {
+    const data = await fetchData();
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Failed to fetch" }, { status: 500 });
+  }
+}
+```
+
+### ✅ React Component Functions
+```typescript
+// ❌ Bad - no return type
+function UserProfile({ userId }: { userId: string }) {
+  const [user, setUser] = useState(null);
+  return <div>{user?.name}</div>;
+}
+
+// ✅ Good - explicit return type
+function UserProfile({ userId }: { userId: string }): JSX.Element {
+  const [user, setUser] = useState<User | null>(null);
+  return <div>{user?.name}</div>;
+}
+```
+
+### ✅ Class Methods
+```typescript
+// ❌ Bad - no return type
+class UserService {
+  async getUser(id: string) {
+    return await this.db.findUser(id);
+  }
+}
+
+// ✅ Good - explicit return type
+class UserService {
+  async getUser(id: string): Promise<User | null> {
+    return await this.db.findUser(id);
+  }
+}
+```
+
+## Recommended Return Type Patterns
+
+### Result Pattern for Operations That Can Fail
+```typescript
+export type Result<T, E = string> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+export async function saveDocument(doc: Document): Promise<Result<string>> {
+  try {
+    const id = await db.documents.insert(doc);
+    return { success: true, data: id };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+### Optional Data Pattern
+```typescript
+export async function findUser(email: string): Promise<User | null> {
+  const user = await db.users.findByEmail(email);
+  return user || null;
+}
+```
+
+### Validation Result Pattern
+```typescript
+export type ValidationResult<T> = {
+  valid: T[];
+  invalid: { item: T; reason: string }[];
+};
+
+export function validateFiles(files: File[]): ValidationResult<File> {
+  const valid: File[] = [];
+  const invalid: { item: File; reason: string }[] = [];
+  
+  files.forEach(file => {
+    if (file.size > MAX_SIZE) {
+      invalid.push({ item: file, reason: "File too large" });
+    } else {
+      valid.push(file);
+    }
+  });
+  
+  return { valid, invalid };
+}
+```
+
+## Common Mistakes to Avoid
+
+### ❌ Mistake 1: Using `any` as return type
+```typescript
+// ❌ Bad
+function processData(input: unknown): any {
+  return JSON.parse(input as string);
+}
+
+// ✅ Good
+interface ProcessedData {
+  id: string;
+  name: string;
+}
+
+function processData(input: unknown): ProcessedData {
+  const parsed = JSON.parse(input as string);
+  return {
+    id: parsed.id,
+    name: parsed.name,
+  };
+}
+```
+
+### ❌ Mistake 2: Forgetting Promise wrapper for async functions
+```typescript
+// ❌ Bad
+async function fetchUser(id: string): User {
+  return await db.users.findById(id);
+}
+
+// ✅ Good
+async function fetchUser(id: string): Promise<User | null> {
+  return await db.users.findById(id);
+}
+```
+
+### ❌ Mistake 3: Not handling error cases in return type
+```typescript
+// ❌ Bad - doesn't account for errors
+async function uploadFile(file: File): Promise<string> {
+  return await storage.upload(file); // What if this throws?
+}
+
+// ✅ Good - explicit error handling
+async function uploadFile(file: File): Promise<{ success: true; url: string } | { success: false; error: string }> {
+  try {
+    const url = await storage.upload(file);
+    return { success: true, url };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+## Benefits of Explicit Return Types
+
+1. **Prevents undefined access errors** - Consumers know exactly what to expect
+2. **Better error handling** - Forces consideration of failure cases
+3. **Improved refactoring** - Changes to function implementation are caught at compile time
+4. **Enhanced IDE experience** - Better autocomplete and error detection
+5. **Self-documenting code** - Return types serve as inline documentation
+6. **Easier testing** - Clear contracts make it easier to write comprehensive tests
+
+## ESLint Configuration
+
+Add this to your ESLint config to enforce return types:
+
+```json
+{
+  "rules": {
+    "@typescript-eslint/explicit-function-return-type": "error",
+    "@typescript-eslint/explicit-module-boundary-types": "error"
+  }
+}
+```
+
+## Migration Strategy
+
+For existing codebases:
+1. **Start with public APIs** - Add return types to exported functions first
+2. **Focus on critical paths** - Prioritize functions that handle user data or business logic
+3. **Use gradual typing** - Add return types incrementally during code reviews
+4. **Update tests** - Ensure tests validate the new return type contracts
+
+## Checklist for the Assistant
+- [ ] Always provide explicit return types for ALL function declarations
+- [ ] Use discriminated unions for functions with multiple possible outcomes
+- [ ] Include Promise wrappers for async functions
+- [ ] Consider error cases when defining return types
+- [ ] Avoid `any` and overly broad types in return type annotations
+- [ ] Use meaningful type names that describe the function's purpose
+- [ ] Ensure return types match the actual function implementation
+
+## Real-World Example
+
+This rule prevents issues like the recent `getCurrentUserUsage` error:
+
+```typescript
+// ❌ Before: Function could return undefined unexpectedly
+export async function getCurrentUserUsage() {
+  // Implementation could fail and return undefined
+}
+
+// ✅ After: Clear contract with explicit types
+export type GetCurrentUserUsageResult = 
+  | { success: true; data: UsageStats }
+  | { success: false; error: string };
+
+export async function getCurrentUserUsage(): Promise<GetCurrentUserUsageResult> {
+  // Implementation must match the return type
+}
+```
+
+This prevents runtime errors and makes the code more predictable and maintainable.
+
+## Exceptions (None)
+
+There are **NO exceptions** to this rule. Every TypeScript function must have an explicit return type. This includes:
+- Utility functions
+- Event handlers
+- Callback functions
+- Helper functions
+- Private methods
+- Anonymous functions (when possible)
+
+**Remember**: If TypeScript can infer it, you should make it explicit for better code clarity and error prevention.
+description:
+globs:
+alwaysApply: false
+

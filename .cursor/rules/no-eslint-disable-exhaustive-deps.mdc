@@ -1,0 +1,159 @@
+---
+description: 
+globs: *.tsx
+alwaysApply: false
+---
+# NEVER Disable `react-hooks/exhaustive-deps` - ZERO TOLERANCE
+
+## Context
+The linter rule `react-hooks/exhaustive-deps` exists to ensure that React hooks like `useEffect`, `useCallback`, and `useMemo` have all their dependencies properly declared. This prevents subtle bugs where effects don't re-run when they should, or where stale closures capture outdated values.
+
+**ABSOLUTELY FORBIDDEN**: Using ANY form of eslint-disable comments for this rule:
+
+```tsx
+// eslint-disable-next-line react-hooks/exhaustive-deps
+/* eslint-disable-next-line react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */
+```
+
+This is a **ZERO TOLERANCE** rule. Disabling this rule hides real dependency issues that can lead to bugs, stale state, infinite loops, and unpredictable behavior. There are NO exceptions to this rule.
+
+## Rule
+1. **NEVER add ANY form of eslint-disable comment** for `react-hooks/exhaustive-deps` under any circumstances.
+2. When the linter flags missing dependencies, **ALWAYS fix the root cause** by:
+   • Adding the missing dependencies to the dependency array.
+   • Moving the dependency inside the hook if it doesn't need to be external.
+   • Using `useCallback` or `useMemo` to stabilize function/object dependencies.
+   • Restructuring the code to eliminate unnecessary dependencies.
+   • Using separate state triggers to break circular dependencies.
+   • Separating effects into multiple focused hooks.
+3. **All hooks MUST pass linting** without disabling the rule.
+4. **If you encounter a circular dependency**, restructure the code - never disable the rule.
+
+## Examples
+
+### Basic Missing Dependencies
+| ❌ Bad | ✅ Good |
+|-----|---|
+| ```tsx
+useEffect(() => {
+  fetchData(userId);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+``` | ```tsx
+useEffect(() => {
+  fetchData(userId);
+}, [userId]);
+``` |
+
+### Function Dependencies
+| ❌ Bad | ✅ Good |
+|-----|---|
+| ```tsx
+const memoizedValue = useMemo(() => {
+  return computeValue(props.data);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+``` | ```tsx
+const memoizedValue = useMemo(() => {
+  return computeValue(props.data);
+}, [props.data]);
+``` |
+
+### Circular Dependencies (Advanced)
+| ❌ Bad | ✅ Good |
+|-----|---|
+| ```tsx
+// This creates a circular dependency
+const fetchData = useCallback(() => {
+  // fetch logic
+}, []);
+
+useEffect(() => {
+  // Some condition that triggers refetch
+  if (shouldRefetch) {
+    fetchData();
+  }
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [shouldRefetch]);
+``` | ```tsx
+// Use a trigger state to break the cycle
+const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+const fetchData = useCallback(() => {
+  // fetch logic
+}, []);
+
+// Effect that responds to trigger
+useEffect(() => {
+  if (refreshTrigger > 0) {
+    fetchData();
+  }
+}, [refreshTrigger, fetchData]);
+
+// Effect that sets the trigger
+useEffect(() => {
+  if (shouldRefetch) {
+    setRefreshTrigger(prev => prev + 1);
+  }
+}, [shouldRefetch]);
+``` |
+
+### Stabilizing Function Dependencies
+| ❌ Bad | ✅ Good |
+|-----|---|
+| ```tsx
+useEffect(() => {
+  const handler = () => {
+    doSomething(value);
+  };
+  
+  addEventListener('event', handler);
+  return () => removeEventListener('event', handler);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+``` | ```tsx
+const handler = useCallback(() => {
+  doSomething(value);
+}, [value]);
+
+useEffect(() => {
+  addEventListener('event', handler);
+  return () => removeEventListener('event', handler);
+}, [handler]);
+``` |
+
+## Common Dependency Issues and Solutions
+
+### Issue: "Function changes on every render"
+**Solution**: Wrap the function with `useCallback` and include its dependencies.
+
+### Issue: "Object/array changes on every render"  
+**Solution**: Use `useMemo` to stabilize the object/array or move it outside the component.
+
+### Issue: "Circular dependency with fetchData"
+**Solution**: Use a trigger state pattern to break the cycle (see example above).
+
+### Issue: "Effect needs to run only once"
+**Solution**: If it truly needs to run once, the dependency array should be empty and the effect should not depend on any values. If it depends on values, include them.
+
+### Issue: "State setter in dependency array"
+**Solution**: State setters from `useState` are stable and don't need to be included, but include them anyway for clarity.
+
+## Checklist for the Assistant
+- [ ] **NEVER suggest any form of eslint-disable** for `react-hooks/exhaustive-deps` under any circumstances.
+- [ ] **ALWAYS add all required dependencies** to the dependency array.
+- [ ] **Use `useCallback` or `useMemo`** to stabilize dependencies when needed.
+- [ ] **Restructure code to break circular dependencies** using trigger states or separate effects.
+- [ ] **Separate complex effects** into multiple focused hooks when needed.
+- [ ] **Verify that hooks behave correctly** with proper dependencies.
+- [ ] **Test the fix** to ensure it doesn't cause infinite loops or other issues.
+
+## Emergency Escalation
+If you encounter a situation where you believe the rule is genuinely incorrect:
+1. **STOP** - Do not disable the rule
+2. **Document the specific issue** in detail
+3. **Ask for human review** before proceeding
+4. **Explore alternative solutions** rather than disabling the rule
+
+**Remember**: This rule exists to prevent real bugs. Disabling it is never the right solution.

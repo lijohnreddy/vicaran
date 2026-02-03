@@ -1,0 +1,162 @@
+---
+globs: *.ts,*.tsx
+alwaysApply: false
+---
+# No `while (true)` Loops - Fix `no-constant-condition` Root Cause
+
+## Context
+The ESLint rule `no-constant-condition` prevents the use of loops with constant conditions, such as `while (true)`. While seemingly useful for infinite loops (like processing a stream), this pattern is often a code smell and can hide bugs or make code harder to reason about. Disabling this rule with `// eslint-disable-next-line no-constant-condition` is strictly forbidden.
+
+The correct way to handle continuously reading from a stream is to use a recursive function pattern, often called a `pump` or `read` function, which processes one chunk and then calls itself to process the next. This pattern is cleaner, avoids the linter error, and better represents the asynchronous, chunk-by-chunk nature of stream processing.
+
+## Rule
+1.  **NEVER use** `// eslint-disable-next-line no-constant-condition` or any other ESLint disable directive for this rule.
+2.  **Do not use** `while (true)` to process streams or other asynchronous iterative tasks.
+3.  **ALWAYS use** a recursive `pump` function pattern to read from streams until the `done` condition is met.
+
+## Examples
+
+### ❌ Bad (Forbidden Pattern)
+```typescript
+private async handleSSEStream(response: Response, /* ... */): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) { /* ... */ }
+
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break; // Exits the loop
+      }
+      // Process the 'value' chunk...
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+```
+
+### ✅ Good (Recursive Pump Pattern)
+```typescript
+private async handleSSEStream(response: Response, /* ... */): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) { /* ... */ }
+
+  const decoder = new TextDecoder();
+
+  // Define a recursive function to process the stream
+  const pump = async () => {
+    const { done, value } = await reader.read();
+    if (done) {
+      // Base case: stream is finished, exit the recursion
+      return;
+    }
+
+    // Process the current chunk
+    const chunk = decoder.decode(value, { stream: true });
+    // ... logic to handle the chunk ...
+
+    // Recursive step: call the function again to process the next chunk
+    return pump();
+  };
+
+  try {
+    // Start the process
+    await pump();
+  } finally {
+    reader.releaseLock();
+  }
+}
+```
+
+## Why This is Better
+-   **Clearer Control Flow**: The recursive pattern makes the asynchronous start/process/end flow more explicit.
+-   **No Linter Disables**: It naturally avoids the `no-constant-condition` error without needing to suppress it.
+-   **Better Error Handling**: Errors within the `pump` function will correctly reject the promise chain.
+-   **State Management**: It's easier to manage state across chunks if needed by passing it through the recursive calls.
+
+## Checklist for the Assistant
+- [ ] When processing a stream, never use `while (true)`.
+- [ ] Implement a recursive `pump` function that reads a chunk, processes it, and calls itself.
+- [ ] The base case for the recursion must be the `done` condition from the stream reader.
+- [ ] Never suggest using `eslint-disable` for the `no-constant-condition` rule.
+# No `while (true)` Loops - Fix `no-constant-condition` Root Cause
+
+## Context
+The ESLint rule `no-constant-condition` prevents the use of loops with constant conditions, such as `while (true)`. While seemingly useful for infinite loops (like processing a stream), this pattern is often a code smell and can hide bugs or make code harder to reason about. Disabling this rule with `// eslint-disable-next-line no-constant-condition` is strictly forbidden.
+
+The correct way to handle continuously reading from a stream is to use a recursive function pattern, often called a `pump` or `read` function, which processes one chunk and then calls itself to process the next. This pattern is cleaner, avoids the linter error, and better represents the asynchronous, chunk-by-chunk nature of stream processing.
+
+## Rule
+1.  **NEVER use** `// eslint-disable-next-line no-constant-condition` or any other ESLint disable directive for this rule.
+2.  **Do not use** `while (true)` to process streams or other asynchronous iterative tasks.
+3.  **ALWAYS use** a recursive `pump` function pattern to read from streams until the `done` condition is met.
+
+## Examples
+
+### ❌ Bad (Forbidden Pattern)
+```typescript
+private async handleSSEStream(response: Response, /* ... */): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) { /* ... */ }
+
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break; // Exits the loop
+      }
+      // Process the 'value' chunk...
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+```
+
+### ✅ Good (Recursive Pump Pattern)
+```typescript
+private async handleSSEStream(response: Response, /* ... */): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) { /* ... */ }
+
+  const decoder = new TextDecoder();
+
+  // Define a recursive function to process the stream
+  const pump = async () => {
+    const { done, value } = await reader.read();
+    if (done) {
+      // Base case: stream is finished, exit the recursion
+      return;
+    }
+
+    // Process the current chunk
+    const chunk = decoder.decode(value, { stream: true });
+    // ... logic to handle the chunk ...
+
+    // Recursive step: call the function again to process the next chunk
+    return pump();
+  };
+
+  try {
+    // Start the process
+    await pump();
+  } finally {
+    reader.releaseLock();
+  }
+}
+```
+
+## Why This is Better
+-   **Clearer Control Flow**: The recursive pattern makes the asynchronous start/process/end flow more explicit.
+-   **No Linter Disables**: It naturally avoids the `no-constant-condition` error without needing to suppress it.
+-   **Better Error Handling**: Errors within the `pump` function will correctly reject the promise chain.
+-   **State Management**: It's easier to manage state across chunks if needed by passing it through the recursive calls.
+
+## Checklist for the Assistant
+- [ ] When processing a stream, never use `while (true)`.
+- [ ] Implement a recursive `pump` function that reads a chunk, processes it, and calls itself.
+- [ ] The base case for the recursion must be the `done` condition from the stream reader.
+- [ ] Never suggest using `eslint-disable` for the `no-constant-condition` rule.

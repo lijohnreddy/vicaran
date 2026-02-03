@@ -1,0 +1,225 @@
+---
+trigger: glob
+description:
+globs: *.py
+---
+# Pydantic V2 Field Validator Required - No Deprecated @validator
+
+## Context
+Pydantic V2 deprecated the `@validator` decorator in favor of `@field_validator`. Using the deprecated `@validator` decorator leads to deprecation warnings and potential compatibility issues. The new `@field_validator` provides better performance and cleaner syntax.
+
+Common errors when using deprecated validators:
+- `Pydantic V1 style @validator validators are deprecated. You should migrate to Pydantic V2 style @field_validator validators`
+- Missing `@classmethod` decorator in validator functions
+- Incorrect import statements
+
+## Rule
+1. **Never use** the deprecated `@validator` decorator from Pydantic V1.
+2. **Always use** `@field_validator` from Pydantic V2.
+3. **Always add** `@classmethod` decorator to field validator methods.
+4. **Import** `field_validator` instead of `validator` from pydantic.
+5. **Use proper syntax** for field validation in Pydantic V2.
+
+## Migration Guide
+
+### ❌ Bad (Deprecated Pydantic V1 Style)
+```python
+from pydantic import BaseModel, Field, validator
+
+class MyModel(BaseModel):
+    name: str = Field(..., description="Name field")
+    
+    @validator("name")
+    def validate_name(cls, v: str) -> str:
+        """Validate name is not empty."""
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
+        return v.strip()
+```
+
+### ✅ Good (Modern Pydantic V2 Style)
+```python
+from pydantic import BaseModel, Field, field_validator
+
+class MyModel(BaseModel):
+    name: str = Field(..., description="Name field")
+    
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate name is not empty."""
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
+        return v.strip()
+```
+
+## Key Differences in Pydantic V2
+
+### Import Changes
+| ❌ Deprecated | ✅ Modern |
+|---|---|
+| `from pydantic import validator` | `from pydantic import field_validator` |
+| `from pydantic import root_validator` | `from pydantic import model_validator` |
+
+### Decorator Changes
+| ❌ Deprecated | ✅ Modern |
+|---|---|
+| `@validator("field_name")` | `@field_validator("field_name")` |
+| `@root_validator` | `@model_validator(mode='before')` or `@model_validator(mode='after')` |
+
+### Method Signature Changes
+```python
+# ❌ Old style - missing @classmethod
+@validator("field_name")
+def validate_field(cls, v):
+    return v
+
+# ✅ New style - requires @classmethod
+@field_validator("field_name")
+@classmethod
+def validate_field(cls, v):
+    return v
+```
+
+## Common Validation Patterns
+
+### Single Field Validation
+```python
+class UserModel(BaseModel):
+    email: str = Field(..., description="User email address")
+    
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        """Validate email format."""
+        if "@" not in v:
+            raise ValueError("Invalid email format")
+        return v.lower()
+```
+
+### Multiple Field Validation
+```python
+class UserModel(BaseModel):
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="Password")
+    
+    @field_validator("username", "password")
+    @classmethod
+    def validate_required_fields(cls, v: str) -> str:
+        """Validate required fields are not empty."""
+        if not v.strip():
+            raise ValueError("Field cannot be empty")
+        return v.strip()
+```
+
+### Conditional Validation
+```python
+class ProductModel(BaseModel):
+    name: str = Field(..., description="Product name")
+    price: float = Field(..., ge=0, description="Product price")
+    
+    @field_validator("price")
+    @classmethod
+    def validate_price(cls, v: float) -> float:
+        """Validate price is reasonable."""
+        if v > 10000:
+            raise ValueError("Price seems too high")
+        return v
+```
+
+### Model-Level Validation (Root Validator Replacement)
+```python
+class OrderModel(BaseModel):
+    item_count: int = Field(..., ge=1)
+    total_price: float = Field(..., ge=0)
+    
+    @model_validator(mode='after')
+    @classmethod
+    def validate_order_consistency(cls, model) -> 'OrderModel':
+        """Validate order data consistency."""
+        if model.total_price < model.item_count * 0.01:
+            raise ValueError("Total price too low for item count")
+        return model
+```
+
+## Advanced Validation Features
+
+### Validation with Info Parameter
+```python
+class ConfigModel(BaseModel):
+    debug: bool = Field(default=False)
+    log_level: str = Field(..., description="Logging level")
+    
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str, info) -> str:
+        """Validate log level based on debug setting."""
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
+        if v.upper() not in valid_levels:
+            raise ValueError(f"Invalid log level: {v}")
+        return v.upper()
+```
+
+### Custom Validation Error Messages
+```python
+class UserRegistration(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    
+    @field_validator("username")
+    @classmethod
+    def validate_username_characters(cls, v: str) -> str:
+        """Validate username contains only allowed characters."""
+        if not v.isalnum():
+            raise ValueError(
+                "Username must contain only alphanumeric characters"
+            )
+        return v
+```
+
+## Validation Performance Benefits
+Pydantic V2 field validators offer:
+- **Faster validation** - Optimized validation engine
+- **Better error messages** - More precise error reporting
+- **Type safety** - Better integration with type checkers
+- **Cleaner syntax** - More explicit and readable code
+
+## Migration Checklist
+- [ ] Replace all `@validator` with `@field_validator`
+- [ ] Add `@classmethod` decorator to all validator methods
+- [ ] Update imports from `validator` to `field_validator`
+- [ ] Replace `@root_validator` with `@model_validator`
+- [ ] Test all validation logic after migration
+- [ ] Update type hints for validator methods
+
+## Validation Commands
+```bash
+# Check for deprecated validator usage
+uv run --group lint ruff check --select F401 .  # Check for unused imports
+uv run --group lint mypy .  # Verify type checking
+
+# Look for deprecated patterns
+grep -r "@validator" . --include="*.py"
+grep -r "from pydantic import.*validator" . --include="*.py"
+```
+
+## Why This Matters
+- **Future compatibility** - Pydantic V1 validators will be removed
+- **Performance** - V2 validators are significantly faster
+- **Type safety** - Better integration with static type checkers
+- **Error messages** - More precise and helpful validation errors
+- **Maintainability** - Cleaner, more explicit validation code
+
+## Checklist for the Assistant
+- [ ] Never suggest `@validator` decorator in Pydantic models
+- [ ] Always use `@field_validator` for field validation
+- [ ] Always add `@classmethod` decorator to validator methods
+- [ ] Import `field_validator` instead of `validator`
+- [ ] Use `@model_validator` instead of `@root_validator`
+- [ ] Provide proper type hints for validator methods
+- [ ] Test validation logic after implementing validators
+
+This ensures modern Pydantic V2 validation patterns that are performant, type-safe, and future-compatible.
+description:
+globs:
+alwaysApply: false
+---

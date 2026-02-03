@@ -1,0 +1,222 @@
+---
+globs: *.tsx
+alwaysApply: false
+---
+# React Components Don't Need JSX Return Types
+
+## Context
+In modern React with TypeScript, explicit return type annotations like `JSX.Element`, `React.ReactElement`, or `React.FC` are **unnecessary and discouraged** for functional components. TypeScript automatically infers the correct JSX return type, and adding these annotations is redundant boilerplate that doesn't provide any additional type safety.
+
+This rule clarifies an exception to the general "explicit return types" rule - React functional components are the one case where TypeScript's inference is preferred over explicit annotations.
+
+## Rule
+1. **NEVER add explicit JSX return types** to React functional components
+2. **Let TypeScript infer JSX return types** automatically
+3. **Remove existing JSX return type annotations** when encountered
+4. **Focus explicit typing on props interfaces** instead of return types
+5. **This overrides the general explicit return types rule** for React components specifically
+
+## Examples
+
+### ✅ Correct - No Return Type Annotation
+```typescript
+// ✅ Good - TypeScript infers the JSX return type
+function HeroSection() {
+  return (
+    <div>
+      <h1>Welcome</h1>
+    </div>
+  );
+}
+
+// ✅ Good - With props, still no return type needed
+interface Props {
+  title: string;
+  subtitle?: string;
+}
+
+function HeroSection({ title, subtitle }: Props) {
+  return (
+    <div>
+      <h1>{title}</h1>
+      {subtitle && <p>{subtitle}</p>}
+    </div>
+  );
+}
+
+// ✅ Good - Arrow function, no return type
+const HeroSection = ({ title }: { title: string }) => {
+  return <div><h1>{title}</h1></div>;
+};
+
+// ✅ Good - Async component (Server Component)
+async function ServerComponent() {
+  const data = await fetchData();
+  return <div>{data.title}</div>;
+}
+```
+
+### ❌ Incorrect - Unnecessary Return Type Annotations
+```typescript
+// ❌ Bad - Unnecessary JSX.Element annotation
+function HeroSection(): JSX.Element {
+  return <div><h1>Welcome</h1></div>;
+}
+
+// ❌ Bad - Unnecessary React.ReactElement annotation
+function HeroSection(): React.ReactElement {
+  return <div><h1>Welcome</h1></div>;
+}
+
+// ❌ Bad - React.FC is also unnecessary
+const HeroSection: React.FC = () => {
+  return <div><h1>Welcome</h1></div>;
+};
+
+// ❌ Bad - With props, still unnecessary
+function HeroSection({ title }: { title: string }): JSX.Element {
+  return <div><h1>{title}</h1></div>;
+}
+
+// ❌ Bad - Arrow function with unnecessary return type
+const HeroSection = (): JSX.Element => {
+  return <div><h1>Welcome</h1></div>;
+};
+```
+
+## Why This Rule Exists
+
+### TypeScript's JSX Inference is Excellent
+Modern TypeScript (4.1+) has excellent JSX type inference that:
+- **Automatically determines** the correct return type based on JSX elements
+- **Handles conditional rendering** and complex JSX expressions correctly
+- **Provides full type safety** without manual annotations
+- **Catches JSX errors** at compile time
+
+### Explicit JSX Return Types Are Redundant
+Adding explicit JSX return types:
+- **Provides no additional type safety** - TypeScript already knows it's JSX
+- **Creates unnecessary boilerplate** that clutters component definitions
+- **Can become outdated** if component logic changes
+- **Doesn't follow modern React best practices** (React team doesn't recommend them)
+
+### Focus on What Matters
+Instead of return types, focus TypeScript efforts on:
+- **Props interfaces** - Define clear component APIs
+- **State types** - Type useState and other hooks properly  
+- **Event handler types** - Ensure event handling is type-safe
+- **Custom hooks** - Type hook parameters and return values
+
+## Specific Cases
+
+### Server Components (Async)
+```typescript
+// ✅ Good - No return type needed even for async
+async function ServerComponent() {
+  const data = await getData();
+  return <div>{data.title}</div>;
+}
+
+// ❌ Bad - Unnecessary Promise<JSX.Element>
+async function ServerComponent(): Promise<JSX.Element> {
+  const data = await getData();
+  return <div>{data.title}</div>;
+}
+```
+
+### Components with Conditional Returns
+```typescript
+// ✅ Good - TypeScript handles conditional returns automatically
+function ConditionalComponent({ show }: { show: boolean }) {
+  if (!show) {
+    return null; // TypeScript knows this returns JSX.Element | null
+  }
+  
+  return <div>Content</div>;
+}
+
+// ❌ Bad - Explicit union type is unnecessary  
+function ConditionalComponent({ show }: { show: boolean }): JSX.Element | null {
+  if (!show) return null;
+  return <div>Content</div>;
+}
+```
+
+### Higher-Order Components
+```typescript
+// ✅ Good - Generic inference works well
+function withLoading<T extends object>(Component: React.ComponentType<T>) {
+  return function LoadingWrapper(props: T & { isLoading?: boolean }) {
+    if (props.isLoading) {
+      return <div>Loading...</div>;
+    }
+    return <Component {...props} />;
+  };
+}
+
+// ❌ Bad - Return type annotation interferes with generics
+function withLoading<T extends object>(
+  Component: React.ComponentType<T>
+): React.ComponentType<T & { isLoading?: boolean }> {
+  // More complex and less flexible
+}
+```
+
+## Benefits of This Approach
+
+1. **Cleaner Code** - Less visual noise in component definitions
+2. **Better Developer Experience** - Less boilerplate to write and maintain
+3. **Modern Best Practices** - Aligns with current React/TypeScript recommendations
+4. **Automatic Updates** - TypeScript adjusts types as JSX changes
+5. **Focus on Value** - Spend typing effort on props and logic, not return types
+
+## Integration with Existing Rules
+
+This rule provides a **specific exception** to the general `typescript-explicit-return-types` rule:
+
+- **General functions**: Still require explicit return types
+- **API handlers**: Still require explicit return types  
+- **Utility functions**: Still require explicit return types
+- **React components**: Do NOT require return type annotations (this rule)
+
+## Migration Strategy
+
+When encountering existing components with JSX return types:
+1. **Remove the return type annotation** completely
+2. **Keep the props interface** if it exists
+3. **Verify TypeScript still compiles** (it will)
+4. **Update component documentation** to focus on props rather than return types
+
+## Checklist for the Assistant
+- [ ] Never suggest adding JSX.Element, React.ReactElement, or React.FC return types
+- [ ] Remove explicit JSX return types when editing React components
+- [ ] Focus TypeScript suggestions on props interfaces instead
+- [ ] Let TypeScript automatically infer JSX return types
+- [ ] This rule overrides general return type requirements for React components
+- [ ] Still apply explicit return types to non-React functions in the same file
+
+## Examples from Codebase
+
+```typescript
+// ✅ What we should write
+export default function HeroSection() {
+  return (
+    <section className="pt-20 pb-16">
+      <div className="container mx-auto">
+        <h1>Discover exactly how to make your idea unique</h1>
+      </div>
+    </section>
+  );
+}
+
+// ❌ What we should avoid
+export default function HeroSection(): JSX.Element {
+  return (
+    <section className="pt-20 pb-16">
+      <div className="container mx-auto">
+        <h1>Discover exactly how to make your idea unique</h1>
+      </div>
+    </section>
+  );
+}
+```

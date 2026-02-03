@@ -1,0 +1,169 @@
+---
+trigger: glob
+globs: *.py
+---
+
+# Never Use `# type: ignore[import-untyped]` Comments
+
+## Context
+Using `# type: ignore[import-untyped]` to suppress import-related type warnings is particularly problematic because:
+- It masks missing type stubs that could be installed
+- It hides incorrect import paths that should be fixed
+- It reduces IDE autocompletion and type checking benefits
+- It can mask breaking changes in dependencies
+- It makes refactoring more dangerous by hiding type information
+
+Import issues should be resolved through proper import paths, type stub installations, or conditional imports - never through type suppression.
+
+## Rule
+1. **Never use** `# type: ignore[import-untyped]` comments for any import statements.
+2. **Always install** official type stubs when available for third-party libraries.
+3. **Use conditional imports** with `TYPE_CHECKING` for complex typing scenarios.
+4. **Fix import paths** to use the correct module paths with proper type information.
+5. **Create custom type stubs** for internal libraries without types.
+
+## Common Import Issues and Solutions
+
+### Third-Party Libraries Without Types
+| ❌ Bad (Suppressing) | ✅ Good (Install Stubs) |
+|---|---|
+| `import requests  # type: ignore[import-untyped]` | `pip install types-requests` then `import requests` |
+| `from google.cloud import storage  # type: ignore[import-untyped]` | `pip install types-google-cloud-storage` |
+| `import redis  # type: ignore[import-untyped]` | `pip install types-redis` |
+
+### Google Cloud Libraries
+| ❌ Bad (Suppressing) | ✅ Good (Proper Import/Stub) |
+|---|---|
+| `from google.cloud.storage import Client  # type: ignore[import-untyped]` | `pip install types-google-cloud-storage` |
+| `import vertexai  # type: ignore[import-untyped]` | `pip install google-cloud-aiplatform[types]` |
+| `from google.cloud import functions  # type: ignore[import-untyped]` | Use specific import paths or install types |
+
+### Type-Only Imports
+| ❌ Bad (Suppressing) | ✅ Good (Conditional Import) |
+|---|---|
+| `from complex_lib import ComplexType  # type: ignore[import-untyped]` | Use `TYPE_CHECKING` conditional import |
+
+```python
+# Instead of: from complex_lib import ComplexType  # type: ignore[import-untyped]
+# Use conditional import:
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from complex_lib import ComplexType
+
+def process_data(data: "ComplexType") -> None:
+    pass
+```
+
+## Proper Solutions for Import Type Issues
+
+### 1. Install Official Type Stubs
+```bash
+# Common Google Cloud types
+pip install types-google-cloud-storage
+pip install types-google-cloud-pubsub
+pip install google-cloud-aiplatform[types]
+
+# Other common stubs
+pip install types-requests
+pip install types-redis
+pip install types-psycopg2-binary
+```
+
+### 2. Use Conditional Type Imports
+```python
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from google.cloud.storage import Bucket
+    from vertexai.generative_models import GenerativeModel
+
+def process_bucket(bucket: "Bucket") -> None:
+    # Implementation here
+    pass
+```
+
+### 3. Create Custom Type Stubs
+For internal libraries without types, create `.pyi` files:
+
+```python
+# mylib.pyi
+from typing import Any, Dict, List
+
+class MyClass:
+    def method(self, arg: str) -> Dict[str, Any]: ...
+
+def utility_function(data: List[str]) -> bool: ...
+```
+
+### 4. Use Protocol Types for Duck Typing
+```python
+from typing import Protocol
+
+class StorageProtocol(Protocol):
+    def upload(self, data: bytes) -> str: ...
+    def download(self, path: str) -> bytes: ...
+
+# Now you can use StorageProtocol instead of suppressing types
+def handle_storage(client: StorageProtocol) -> None:
+    pass
+```
+
+### 5. Specific Import Paths
+```python
+# Instead of: from google.cloud import storage  # type: ignore[import-untyped]
+# Use specific imports:
+from google.cloud.storage import Client as StorageClient
+from google.cloud.storage.bucket import Bucket
+from google.cloud.storage.blob import Blob
+```
+
+## Google Cloud Specific Solutions
+
+### Vertex AI
+```python
+# Don't suppress - install proper types or use protocols
+from typing import Protocol
+
+class GenerativeModelProtocol(Protocol):
+    def generate_content(self, prompt: str) -> Any: ...
+
+# Or install the proper package with types
+# pip install google-cloud-aiplatform[types]
+```
+
+### Storage
+```python
+# Install types: pip install types-google-cloud-storage
+from google.cloud.storage import Client, Bucket, Blob
+
+client = Client()
+bucket: Bucket = client.bucket("my-bucket")
+blob: Blob = bucket.blob("my-file")
+```
+
+## Dependency Management
+Add type stubs to your `pyproject.toml`:
+
+```toml
+[dependency-groups.dev]
+types-google-cloud-storage = ">=1.0.0"
+types-requests = ">=2.28.0"
+google-cloud-aiplatform = {extras = ["types"], version = ">=1.38.0"}
+```
+
+## Verification Steps
+Before adding any import, verify:
+1. **Check PyPI** for official type stubs: `types-{package-name}`
+2. **Check package extras**: Some packages include types with `[types]` extra
+3. **Read documentation**: Many packages provide typing guidance
+4. **Create protocols**: For complex third-party integrations
+
+## Checklist for the Assistant
+- [ ] Never suggest `# type: ignore[import-untyped]` for any import
+- [ ] Always check for available type stubs before imports
+- [ ] Use conditional imports with `TYPE_CHECKING` when appropriate
+- [ ] Install type stubs as development dependencies
+- [ ] Create Protocol types for duck-typed interfaces
+- [ ] Use specific import paths to get better type information
+- [ ] Document any custom type solutions clearly
+
+This ensures imports maintain full type safety and provides better development experience with proper autocompletion and type checking.

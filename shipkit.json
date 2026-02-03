@@ -1,0 +1,25 @@
+{
+  "templateName": "adk-agent-simple",
+  "version": "2.0.6",
+  "generatedAt": "2026-01-30T19:58:24.288Z",
+  "cliVersion": "3.1.2",
+  "description": "ADK Agent Simple template for building intelligent competitor analysis platform with ADK-powered agents",
+  "features": [
+    "supabase-auth",
+    "drizzle-orm",
+    "next-app-router",
+    "openrouter-ai",
+    "tailwind-ui",
+    "agent-development"
+  ],
+  "changelog": {
+    "2.0.0": "Initial release with ADK agent development functionality for competitor analysis",
+    "2.0.1": "Add Windsurf and Claude Code rule variants.",
+    "2.0.2": "Add MCP support for context7 and time in mcp.json for Claude Code.",
+    "2.0.3": "Windows-Compatible Template Update Workflow.",
+    "2.0.4": "Add Claude command support for all prep and dev templates",
+    "2.0.5": "Enhanced landing page generation with AI visual prompt system and layout-driven visual strategy",
+    "2.0.6": "Add task_review.md and worktree.md for development workflows, fix Tailwind version in docs"
+  },
+  "generatedBy": "shipkit-ai"
+}

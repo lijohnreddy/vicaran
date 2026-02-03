@@ -1,0 +1,294 @@
+"use client";
+
+import React, { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Download, Loader2, AlertCircle } from "lucide-react";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
+interface ReportWithDownloadProps {
+  content: string;
+}
+
+export function ReportWithDownload({ content }: ReportWithDownloadProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const hiddenContentRef = useRef<HTMLDivElement>(null);
+
+  const handleDownload = async (): Promise<void> => {
+    try {
+      setIsGenerating(true);
+      setError(null);
+
+      // Create and temporarily show the hidden element
+      if (!hiddenContentRef.current) {
+        throw new Error("Hidden content element not found");
+      }
+
+      const hiddenElement = hiddenContentRef.current;
+
+      // Style the hidden element for PDF capture
+      hiddenElement.style.display = "block";
+      hiddenElement.style.position = "fixed";
+      hiddenElement.style.top = "-9999px";
+      hiddenElement.style.left = "0";
+      hiddenElement.style.zIndex = "-1";
+
+      // Wait for content to render and fonts to load
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Capture with html2canvas
+      const canvas = await html2canvas(hiddenElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: 800,
+        height: hiddenElement.scrollHeight,
+      });
+
+      // Create PDF with jsPDF
+      const imgData = canvas.toDataURL("image/png");
+      const pdfWidth = canvas.width / 2;
+      const pdfHeight = canvas.height / 2;
+
+      const pdf = new jsPDF({
+        orientation: pdfHeight > pdfWidth ? "portrait" : "landscape",
+        unit: "px",
+        format: [pdfWidth, pdfHeight],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().split("T")[0];
+      const filename = `competitor-analysis-report-${timestamp}.pdf`;
+
+      // Download the PDF
+      pdf.save(filename);
+
+      console.log("✅ PDF generated successfully:", filename);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to generate PDF";
+      setError(errorMessage);
+      console.error("❌ PDF generation failed:", err);
+    } finally {
+      // Always hide the element
+      if (hiddenContentRef.current) {
+        hiddenContentRef.current.style.display = "none";
+      }
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Sophisticated Floating Action Button - Top Right */}
+      <div className="absolute top-6 right-4 z-20">
+        <Button
+          onClick={handleDownload}
+          disabled={isGenerating}
+          variant="outline"
+          size="default"
+          className="px-4 sm:px-4 py-2 sm:py-3 text-sm border-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg"
+        >
+          {isGenerating ? (
+            <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2.5} />
+          ) : (
+            <Download className="w-4 h-4" strokeWidth={2.5} />
+          )}
+          {isGenerating ? "Generating..." : "Download PDF"}
+        </Button>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-sm text-red-700">{error}</span>
+        </div>
+      )}
+
+      {/* Main Content - Full Markdown Rendered */}
+      <div className="prose prose-gray prose-lg max-w-none pr-4 sm:pr-8 md:pr-24 lg:pr-32">
+        <MarkdownRenderer content={content} />
+      </div>
+
+      {/* Hidden Element for PDF Capture - Only Shown During Export */}
+      <div
+        ref={hiddenContentRef}
+        style={{
+          display: "none",
+          width: "800px",
+          backgroundColor: "white",
+          padding: "40px",
+          fontFamily: "Arial, sans-serif",
+          color: "#000000",
+        }}
+      >
+        {/* PDF Header */}
+        <div
+          style={{
+            borderBottom: "1px solid #e5e7eb",
+            paddingBottom: "24px",
+            marginBottom: "32px",
+            position: "relative",
+          }}
+        >
+          {/* Logo - Top Right */}
+          <div
+            style={{
+              position: "absolute",
+              top: "0",
+              right: "0",
+              fontSize: "11px",
+              color: "#6b7280",
+              fontFamily: "Arial, sans-serif",
+              textAlign: "right",
+            }}
+          >
+            <div style={{ marginBottom: "4px", color: "#9ca3af" }}>
+              Generated by
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: "4px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  fontFamily: "Arial, sans-serif",
+                  color: "#32BBFF",
+                  lineHeight: "1",
+                  margin: "0",
+                  padding: "0",
+                }}
+              >
+                CompetitorAI
+              </span>
+            </div>
+          </div>
+
+          {/* Main Title - Left Aligned */}
+          <div style={{ paddingRight: "120px" }}>
+            <h1
+              style={{
+                margin: "0 0 8px 0",
+                color: "#111827",
+                fontSize: "32px",
+                fontWeight: "bold",
+                fontFamily: "Arial, sans-serif",
+                letterSpacing: "-0.5px",
+                lineHeight: "1.1",
+              }}
+            >
+              Competitor Analysis Report
+            </h1>
+            <p
+              style={{
+                margin: "0 0 6px 0",
+                color: "#6b7280",
+                fontSize: "14px",
+                fontFamily: "Arial, sans-serif",
+              }}
+            >
+              Strategic Market Intelligence Report
+            </p>
+            <p
+              style={{
+                margin: "0",
+                color: "#9ca3af",
+                fontSize: "11px",
+                fontFamily: "Arial, sans-serif",
+              }}
+            >
+              {new Date().toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+          </div>
+        </div>
+
+        {/* PDF Content */}
+        <div
+          style={{
+            lineHeight: "1.7",
+            fontSize: "13px",
+            color: "#374151",
+            fontFamily: "Arial, sans-serif",
+            marginBottom: "40px",
+          }}
+        >
+          <MarkdownRenderer content={content} forceColors={true} />
+        </div>
+
+        {/* PDF Footer */}
+        <div
+          style={{
+            borderTop: "1px solid #e5e7eb",
+            paddingTop: "16px",
+            marginTop: "32px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "9px",
+              color: "#9ca3af",
+              fontFamily: "Arial, sans-serif",
+              maxWidth: "60%",
+            }}
+          >
+            This report contains confidential business intelligence.
+            Distribution should be limited to authorized personnel only.
+          </div>
+
+          <div
+            style={{
+              fontSize: "10px",
+              color: "#6b7280",
+              fontFamily: "Arial, sans-serif",
+              textAlign: "right",
+            }}
+          >
+            <div style={{ marginBottom: "2px", color: "#9ca3af" }}>Powered by</div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "flex-end",
+                gap: "3px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  fontFamily: "Arial, sans-serif",
+                  color: "#32BBFF",
+                  lineHeight: "12px",
+                  margin: "0",
+                  padding: "0",
+                  display: "inline-block",
+                }}
+              >
+                CompetitorAI
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

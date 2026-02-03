@@ -1,0 +1,271 @@
+---
+globs: *.sql
+alwaysApply: false
+---
+# PostgreSQL Function Parameter Changes - Drop Before Recreate
+
+## Context
+PostgreSQL's `CREATE OR REPLACE FUNCTION` has strict limitations when it comes to changing function signatures, particularly parameter names. Attempting to change parameter names (even while keeping the same types and order) will result in a PostgreSQL error:
+
+```
+PostgresError: cannot change name of input parameter "old_param_name"
+```
+
+This occurs because PostgreSQL treats parameter name changes as signature modifications that are not allowed with the `OR REPLACE` clause. The database suggests using `DROP FUNCTION` first, which is the correct approach.
+
+## Rule
+1. **Never use `CREATE OR REPLACE FUNCTION`** when changing parameter names, even if types remain the same.
+2. **Always use `DROP FUNCTION IF EXISTS`** with the exact current signature before recreating the function.
+3. **Include complete function signatures** in DROP statements (parameter types, not just names).
+4. **Use `IF EXISTS`** to prevent errors if the function doesn't exist.
+5. **Change to `CREATE FUNCTION`** (not `CREATE OR REPLACE`) after dropping.
+
+## Error Pattern We Encountered
+```sql
+-- ❌ This fails with parameter name change
+CREATE OR REPLACE FUNCTION match_text_chunks (
+    query_embedding vector(768),
+    p_user_id uuid,
+    p_match_threshold float DEFAULT 0.7,
+    p_match_count int DEFAULT 10,
+    p_embedding_types text[] DEFAULT NULL  -- ❌ Changed from p_content_types
+)
+```
+
+**Error Message:**
+```
+PostgresError: cannot change name of input parameter "p_content_types"
+hint: Use DROP FUNCTION match_text_chunks(vector,uuid,double precision,integer,text[]) first.
+```
+
+## Correct Migration Pattern
+
+### ❌ Bad: Attempting parameter name change with OR REPLACE
+```sql
+-- This will fail
+CREATE OR REPLACE FUNCTION match_text_chunks (
+    query_embedding vector(768),
+    p_user_id uuid,
+    p_match_threshold float DEFAULT 0.7,
+    p_match_count int DEFAULT 10,
+    p_embedding_types text[] DEFAULT NULL  -- ❌ Parameter name change
+)
+-- ... rest of function
+```
+
+### ✅ Good: Drop first, then recreate
+```sql
+-- First, drop the existing function with exact signature
+DROP FUNCTION IF EXISTS match_text_chunks(vector, uuid, double precision, integer, text[]);
+
+-- Then create the new function (not OR REPLACE)
+CREATE FUNCTION match_text_chunks (
+    query_embedding vector(768),
+    p_user_id uuid,
+    p_match_threshold float DEFAULT 0.7,
+    p_match_count int DEFAULT 10,
+    p_embedding_types text[] DEFAULT NULL  -- ✅ New parameter name
+)
+RETURNS TABLE (
+    -- ... return columns
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- ... function body
+END;
+$$;
+```
+
+## Function Signature Requirements for DROP
+
+The `DROP FUNCTION` statement requires the **exact parameter types** as they appear in PostgreSQL's system catalog, not necessarily as written in the original `CREATE FUNCTION`:
+
+| Original Type | PostgreSQL System Type | Use in DROP Statement |
+|---|---|---|
+| `vector(768)` | `vector` | `vector` |
+| `uuid` | `uuid` | `uuid` |
+| `float` | `double precision` | `double precision` |
+| `int` | `integer` | `integer` |
+| `text[]` | `text[]` | `text[]` |
+
+## Common Migration Scenarios
+
+### Parameter Name Changes
+```sql
+-- Drop with exact signature from error message
+DROP FUNCTION IF EXISTS function_name(vector, uuid, double precision, integer, text[]);
+
+-- Recreate with new parameter names
+CREATE FUNCTION function_name (
+    query_embedding vector(768),     -- Same type, new name
+    p_user_id uuid,                  -- Same type, new name  
+    p_threshold float DEFAULT 0.7,   -- Same type, new name
+    p_count int DEFAULT 10,          -- Same type, new name
+    p_types text[] DEFAULT NULL      -- Same type, new name
+)
+```
+
+### Parameter Type Changes
+```sql
+-- Drop existing function
+DROP FUNCTION IF EXISTS function_name(vector, uuid, double precision, integer, text[]);
+
+-- Recreate with new parameter types
+CREATE FUNCTION function_name (
+    query_embedding vector(1408),    -- ✅ Changed dimensions
+    p_user_id uuid,                  -- Same
+    p_threshold float DEFAULT 0.7,   -- Same
+    p_count int DEFAULT 10,          -- Same
+    p_types text[] DEFAULT NULL      -- Same
+)
+```
+
+### Adding/Removing Parameters
+```sql
+-- Drop with current signature
+DROP FUNCTION IF EXISTS function_name(vector, uuid, double precision, integer);
+
+-- Recreate with additional parameters
+CREATE FUNCTION function_name (
+    query_embedding vector(768),
+    p_user_id uuid,
+    p_threshold float DEFAULT 0.7,
+    p_count int DEFAULT 10,
+    p_new_param boolean DEFAULT false  -- ✅ Added parameter
+)
+```
+
+## When CREATE OR REPLACE is Safe
+
+`CREATE OR REPLACE FUNCTION` can be used when **only** the function body changes:
+
+```sql
+-- ✅ Safe: Only function body changes, same signature
+CREATE OR REPLACE FUNCTION match_text_chunks (
+    query_embedding vector(768),        -- Same
+    p_user_id uuid,                     -- Same
+    p_match_threshold float DEFAULT 0.7, -- Same
+    p_match_count int DEFAULT 10,       -- Same
+    p_content_types text[] DEFAULT NULL -- Same parameter name
+)
+RETURNS TABLE (
+    -- ... same return signature
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- ✅ Only this part can change with OR REPLACE
+    RETURN QUERY
+    SELECT /* different query logic */;
+END;
+$$;
+```
+
+## Migration Template
+
+Use this template for function parameter changes:
+
+```sql
+-- Custom SQL migration file, put your code below! --
+
+-- Update [FUNCTION_NAME]: [Brief description of changes]
+-- [Any additional context about the change]
+
+-- Drop existing function with exact signature
+DROP FUNCTION IF EXISTS [function_name]([exact_type_signature]);
+
+-- Recreate function with new parameters
+CREATE FUNCTION [function_name] (
+    [new_parameter_list]
+)
+RETURNS TABLE (
+    [return_columns]
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    [function_body]
+END;
+$$;
+```
+
+## Debugging Function Signatures
+
+To find the exact signature for DROP statements:
+
+```sql
+-- Query to find function signatures
+SELECT 
+    p.proname as function_name,
+    pg_get_function_identity_arguments(p.oid) as signature
+FROM pg_proc p
+WHERE p.proname = 'your_function_name';
+```
+
+## Multiple Functions in One Migration
+
+When updating multiple functions:
+
+```sql
+-- Drop all functions first
+DROP FUNCTION IF EXISTS match_text_chunks(vector, uuid, double precision, integer, text[]);
+DROP FUNCTION IF EXISTS match_multimodal_chunks(vector, uuid, double precision, integer, text[]);
+
+-- Then recreate all functions
+CREATE FUNCTION match_text_chunks (
+    -- ... new signature
+);
+
+CREATE FUNCTION match_multimodal_chunks (
+    -- ... new signature  
+);
+```
+
+## Rollback Considerations
+
+When creating down migrations for function changes:
+
+```sql
+-- Down migration should restore original function
+DROP FUNCTION IF EXISTS match_text_chunks(vector, uuid, double precision, integer, text[]);
+
+-- Recreate with original parameter names
+CREATE FUNCTION match_text_chunks (
+    query_embedding vector(768),
+    p_user_id uuid, 
+    p_match_threshold float DEFAULT 0.7,
+    p_match_count int DEFAULT 10,
+    p_content_types text[] DEFAULT NULL  -- ✅ Restore original name
+)
+-- ... original function body
+```
+
+## Checklist for the Assistant
+- [ ] Never suggest `CREATE OR REPLACE FUNCTION` for parameter name changes
+- [ ] Always use `DROP FUNCTION IF EXISTS` with exact signature before recreating
+- [ ] Use the PostgreSQL system types in DROP statements (e.g., `double precision` not `float`)
+- [ ] Change to `CREATE FUNCTION` (not `CREATE OR REPLACE`) after dropping
+- [ ] Include complete parameter type signatures in DROP statements
+- [ ] Consider rollback migrations that restore original function signatures
+- [ ] Test the migration with the exact error message signature if provided
+
+## Real-World Example
+
+This rule comes from our recent migration where changing `p_content_types` to `p_embedding_types` failed:
+
+```sql
+-- ❌ Failed approach
+CREATE OR REPLACE FUNCTION match_text_chunks (
+    -- ... same types
+    p_embedding_types text[] DEFAULT NULL  -- Changed from p_content_types
+);
+
+-- ✅ Working approach  
+DROP FUNCTION IF EXISTS match_text_chunks(vector, uuid, double precision, integer, text[]);
+
+CREATE FUNCTION match_text_chunks (
+    -- ... same types
+    p_embedding_types text[] DEFAULT NULL  -- ✅ Now works
+);
+```

@@ -1,0 +1,7 @@
+requirements.txt
+
+.env.local
+.env.prod
+.env.dev
+
+logs/

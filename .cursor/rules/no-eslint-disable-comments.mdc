@@ -1,0 +1,179 @@
+---
+description: 
+globs: *.tsx
+alwaysApply: false
+---
+# Never Use ESLint Disable Comments - Fix the Root Cause
+
+## Context
+ESLint rules exist to catch real issues, enforce consistent code patterns, and prevent bugs. Using `eslint-disable` comments (in any form) bypasses these important checks instead of addressing the underlying problems. This creates technical debt, hides real issues, and makes the codebase less maintainable.
+
+Disabling linting rules is a dangerous anti-pattern that:
+- **Hides real bugs** that ESLint is designed to catch
+- **Creates inconsistent code** that doesn't follow established patterns
+- **Accumulates technical debt** that becomes harder to fix over time
+- **Bypasses important safeguards** like accessibility, security, and performance checks
+- **Makes refactoring dangerous** because disabled rules won't catch breaking changes
+
+## Rule
+1. **NEVER use ANY form of ESLint disable comments**:
+   - `/* eslint-disable */`
+   - `/* eslint-disable-next-line */`
+   - `// eslint-disable-next-line`
+   - `/* eslint-disable rule-name */`
+   - `// eslint-disable-next-line rule-name`
+
+2. **ALWAYS fix the root cause** instead of disabling the rule.
+
+3. **When encountering ESLint errors**, use these strategies:
+   - **Fix the actual issue** that the rule is catching
+   - **Refactor the code** to follow the pattern the rule enforces
+   - **Use proper alternatives** that satisfy the rule's requirements
+   - **Separate concerns** if the rule indicates architectural issues
+
+## Common ESLint Rules and How to Fix Them (Never Disable)
+
+### `jsx-a11y/alt-text`
+| ❌ Bad (disable rule) | ✅ Good (fix root cause) |
+|---|---|
+| ```tsx
+{/* eslint-disable-next-line jsx-a11y/alt-text */}
+<Image className="w-6 h-6 text-blue-500" />
+``` | ```tsx
+// For Lucide React icons (SVG components), the rule is a false positive
+// The real solution is that this is an icon, not an image
+// Use proper semantic markup
+<div className="w-6 h-6 text-blue-500" aria-hidden="true">
+  <Image className="w-full h-full" />
+</div>
+// OR use a different approach that's semantically correct
+``` |
+
+### `react-hooks/exhaustive-deps`
+| ❌ Bad (disable rule) | ✅ Good (fix root cause) |
+|---|---|
+| ```tsx
+useEffect(() => {
+  fetchData(userId);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+``` | ```tsx
+useEffect(() => {
+  fetchData(userId);
+}, [userId]); // Add missing dependency
+``` |
+
+### `react/no-unescaped-entities`
+| ❌ Bad (disable rule) | ✅ Good (fix root cause) |
+|---|---|
+| ```tsx
+{/* eslint-disable-next-line react/no-unescaped-entities */}
+<p>Sarah's workflow</p>
+``` | ```tsx
+<p>Sarah&rsquo;s workflow</p>
+// OR
+<p>{"Sarah's workflow"}</p>
+``` |
+
+### `@typescript-eslint/no-explicit-any`
+| ❌ Bad (disable rule) | ✅ Good (fix root cause) |
+|---|---|
+| ```tsx
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const data: any = await apiCall();
+``` | ```tsx
+interface ApiResponse {
+  id: string;
+  name: string;
+}
+const data: ApiResponse = await apiCall();
+``` |
+
+### `@typescript-eslint/no-unused-vars`
+| ❌ Bad (disable rule) | ✅ Good (fix root cause) |
+|---|---|
+| ```tsx
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const unusedVariable = getValue();
+``` | ```tsx
+// Remove the unused variable entirely
+// OR use underscore prefix if it's intentionally unused
+const _unusedVariable = getValue();
+// OR actually use the variable
+const neededVariable = getValue();
+doSomethingWith(neededVariable);
+``` |
+
+## Root Cause Analysis Process
+
+When ESLint flags an issue:
+
+1. **Read the error message carefully** - it usually explains what's wrong
+2. **Understand WHY the rule exists** - what problem is it preventing?
+3. **Identify the real issue** - what needs to be changed in the code?
+4. **Apply the proper fix** - refactor, add missing dependencies, fix types, etc.
+5. **Verify the fix** - ensure the code still works and is more robust
+
+## Specific Examples from Our Codebase
+
+### Icon Accessibility Issue
+The `jsx-a11y/alt-text` rule flagged a Lucide React `Image` component because it thought it was an HTML `<img>` tag. The real solutions are:
+
+```tsx
+// ✅ Option 1: Use proper ARIA attributes for decorative icons
+<div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center" aria-hidden="true">
+  <Image className="w-6 h-6 text-blue-500" />
+</div>
+
+// ✅ Option 2: Use a different icon approach
+<FileImageIcon className="w-6 h-6 text-blue-500" aria-hidden="true" />
+
+// ✅ Option 3: If it's meaningful, provide proper labeling
+<div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center" 
+     role="img" 
+     aria-label="Product image icon">
+  <Image className="w-6 h-6 text-blue-500" />
+</div>
+```
+
+## Benefits of Fixing Root Causes
+
+1. **More robust code** that actually handles edge cases properly
+2. **Better accessibility** by addressing real a11y issues
+3. **Improved type safety** by using proper TypeScript types
+4. **Consistent patterns** that follow project conventions
+5. **Easier refactoring** because all code follows the same rules
+6. **Better performance** by addressing inefficient patterns
+7. **Fewer bugs** because ESLint rules catch real issues
+
+## Project-Specific Patterns
+
+In this codebase, we have established patterns for common issues:
+- **Accessibility**: Use proper ARIA attributes and semantic HTML
+- **Type safety**: Define proper interfaces instead of using `any`
+- **React hooks**: Include all dependencies in dependency arrays
+- **Quotes in JSX**: Use HTML entities or string expressions
+- **Async components**: Separate server and client concerns properly
+
+## Emergency Exception Process
+
+In the **extremely rare** case where an ESLint rule is genuinely incorrect:
+
+1. **Document why** the rule is wrong in this specific case
+2. **Create a GitHub issue** to track the problem
+3. **Consider if the rule configuration** needs to be adjusted project-wide
+4. **Get team review** before proceeding
+5. **Only then** consider a disable comment with extensive documentation
+
+This should happen less than once per year in a well-configured project.
+
+## Checklist for the Assistant
+- [ ] Never suggest any form of `eslint-disable` comment under any circumstances
+- [ ] When encountering ESLint errors, always fix the root cause
+- [ ] Understand why each ESLint rule exists and what it's preventing
+- [ ] Use proper alternatives that satisfy the rule's requirements
+- [ ] If unsure about the fix, research the rule's purpose and recommended solutions
+- [ ] Test that the fix actually resolves the issue without breaking functionality
+- [ ] Ensure the fix follows project patterns and conventions
+
+Remember: ESLint rules are there to help us write better code. Disabling them defeats the purpose and creates long-term maintenance problems.

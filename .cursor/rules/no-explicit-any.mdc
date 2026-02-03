@@ -1,0 +1,102 @@
+---
+description: 
+globs: *.tsx,*.ts
+alwaysApply: false
+---
+# No Explicit `any` Type - Use Proper TypeScript Types
+
+## Context
+The `any` type in TypeScript is a dangerous "escape hatch" from the type system. Using `any` disables many type checking rules and defeats the purpose of using TypeScript. It should be avoided in favor of proper typing or the safer `unknown` type.
+
+According to the [TypeScript ESLint documentation](mdc:https:/typescript-eslint.io/rules/no-explicit-any), the `any` type is generally best used only as a last resort or when prototyping code.
+
+## Rule
+1. **Never use** explicit `any` types in function parameters, return types, or variable declarations.
+2. **Instead of `any`**, use:
+   - Specific interfaces or types when the structure is known
+   - `unknown` when the type is truly unknown (safer than `any`)
+   - Generic types (`<T>`) for reusable components
+   - Union types for known possibilities
+3. **For external libraries** without types, create proper type declarations or use `unknown`.
+4. **For complex objects**, define proper interfaces even if they're large.
+
+## Examples
+| ❌ Bad (using `any`) | ✅ Good (proper typing) |
+|---------------------|-------------------------|
+| ```typescript
+function handleData(data: any) {
+  return data.someProperty;
+}
+``` | ```typescript
+interface DataType {
+  someProperty: string;
+}
+function handleData(data: DataType) {
+  return data.someProperty;
+}
+``` |
+| ```typescript
+const subscription: any = stripeSubscription;
+const startTime = subscription.current_period_start;
+``` | ```typescript
+interface StripeSubscriptionWithPeriod extends Stripe.Subscription {
+  current_period_start: number;
+  current_period_end: number;
+}
+const subscription = stripeSubscription as StripeSubscriptionWithPeriod;
+const startTime = subscription.current_period_start;
+``` |
+| ```typescript
+const result: any[] = await apiCall();
+``` | ```typescript
+interface ApiResult {
+  id: string;
+  name: string;
+}
+const result: ApiResult[] = await apiCall();
+``` |
+| ```typescript
+function process(data: any): any {
+  // ...
+}
+``` | ```typescript
+function process<T>(data: T): T {
+  // ...
+}
+// OR
+function process(data: unknown): ProcessedData {
+  // ...
+}
+``` |
+
+## Safe Alternatives to `any`
+1. **`unknown`** - For truly unknown data (requires type guards)
+2. **Union types** - `string | number | boolean` for known possibilities  
+3. **Generic types** - `<T>` for reusable functions/components
+4. **Interface extensions** - Extend existing types with missing properties
+5. **Type assertions** - `as SpecificType` with proper interfaces
+
+## Type Extension Pattern
+For external libraries missing type definitions:
+```typescript
+// ❌ Bad
+const stripeObject: any = subscription;
+
+// ✅ Good - extend the existing type
+interface ExtendedStripeSubscription extends Stripe.Subscription {
+  current_period_start: number;
+  current_period_end: number;
+}
+
+const stripeObject = subscription as ExtendedStripeSubscription;
+```
+
+## Checklist for the Assistant
+- [ ] Never suggest using `any` type annotations.
+- [ ] Always define proper interfaces for object structures.
+- [ ] Use `unknown` instead of `any` for truly unknown data.
+- [ ] Create type extensions for external libraries missing properties.
+- [ ] Use generic types for reusable functions and components.
+- [ ] Prefer union types over `any` for known possibilities.
+
+This ensures full TypeScript type safety and prevents runtime errors that `any` can hide.

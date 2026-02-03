@@ -1,0 +1,668 @@
+---
+globs: *.tsx
+alwaysApply: false
+---
+# Use RefObject Instead of Deprecated MutableRefObject
+
+## Context
+React's `MutableRefObject<T>` type is deprecated in favor of `RefObject<T>`. While both types serve similar purposes for referencing DOM elements and storing mutable values, there are important differences in their type signatures that affect null safety and usage patterns.
+
+The key difference is:
+- `MutableRefObject<T>` has `current: T` (never null)
+- `RefObject<T>` has `current: T | null` (can be null)
+
+Using the deprecated `MutableRefObject<T>` will result in TypeScript warnings and should be replaced with `RefObject<T>` with proper null handling.
+
+## Rule
+1. **Never use** `React.MutableRefObject<T>` in type annotations - it's deprecated.
+2. **Always use** `React.RefObject<T>` for ref types.
+3. **Handle nullability** properly since `RefObject.current` can be `null`.
+4. **Add null checks** when accessing or modifying `ref.current`.
+5. **Use nullish coalescing** (`||`) when providing fallback values.
+
+## Examples
+
+### Basic Ref Usage
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+const textRef: React.MutableRefObject<string> = useRef("");
+
+function updateText(newText: string) {
+  textRef.current = newText; // No null safety
+}
+``` | ```typescript
+const textRef: React.RefObject<string> = useRef("");
+
+function updateText(newText: string) {
+  if (textRef.current !== null) {
+    textRef.current = newText; // Null-safe
+  }
+}
+``` |
+
+### Function Parameters
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+function processRef(
+  ref: React.MutableRefObject<string>
+): void {
+  ref.current += " processed";
+}
+``` | ```typescript
+function processRef(
+  ref: React.RefObject<string>
+): void {
+  if (ref.current !== null) {
+    ref.current += " processed";
+  }
+}
+``` |
+
+### Component Props
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+interface Props {
+  textRef: React.MutableRefObject<string>;
+  countRef: React.MutableRefObject<number>;
+}
+
+function MyComponent({ textRef, countRef }: Props) {
+  textRef.current = "updated";
+  countRef.current = 42;
+}
+``` | ```typescript
+interface Props {
+  textRef: React.RefObject<string>;
+  countRef: React.RefObject<number>;
+}
+
+function MyComponent({ textRef, countRef }: Props) {
+  if (textRef.current !== null) {
+    textRef.current = "updated";
+  }
+  if (countRef.current !== null) {
+    countRef.current = 42;
+  }
+}
+``` |
+
+### Reading Values with Fallbacks
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+function getValue(
+  ref: React.MutableRefObject<string>
+): string {
+  return ref.current; // Always assumes non-null
+}
+``` | ```typescript
+function getValue(
+  ref: React.RefObject<string>
+): string {
+  return ref.current || ""; // Handles null case
+}
+``` |
+
+## Common Patterns
+
+### State Management with Refs
+```typescript
+// ✅ Good - Handle null properly
+function useAccumulatedText(): {
+  textRef: React.RefObject<string>;
+  appendText: (text: string) => void;
+  clearText: () => void;
+} {
+  const textRef = useRef<string>("");
+
+  const appendText = useCallback((text: string) => {
+    if (textRef.current !== null) {
+      textRef.current += text;
+    }
+  }, []);
+
+  const clearText = useCallback(() => {
+    if (textRef.current !== null) {
+      textRef.current = "";
+    }
+  }, []);
+
+  return { textRef, appendText, clearText };
+}
+```
+
+### Streaming/Connection Management
+```typescript
+// ✅ Good - Null-safe ref operations
+function StreamingManager({
+  accumulatedTextRef,
+  currentAgentRef
+}: {
+  accumulatedTextRef: React.RefObject<string>;
+  currentAgentRef: React.RefObject<string>;
+}): void {
+  // Reset refs safely
+  if (accumulatedTextRef.current !== null) {
+    accumulatedTextRef.current = "";
+  }
+  if (currentAgentRef.current !== null) {
+    currentAgentRef.current = "";
+  }
+
+  // Update refs safely
+  const updateRefs = (text: string, agent: string) => {
+    if (accumulatedTextRef.current !== null) {
+      accumulatedTextRef.current += text;
+    }
+    if (currentAgentRef.current !== null) {
+      currentAgentRef.current = agent;
+    }
+  };
+}
+```
+
+### DOM Element Refs
+```typescript
+// ✅ Good - Handle DOM element refs properly
+function useElementRef(): {
+  elementRef: React.RefObject<HTMLDivElement>;
+  focusElement: () => void;
+} {
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  const focusElement = useCallback(() => {
+    if (elementRef.current) { // DOM refs are naturally nullable
+      elementRef.current.focus();
+    }
+  }, []);
+
+  return { elementRef, focusElement };
+}
+```
+
+## Migration Strategy
+
+### Step 1: Update Type Annotations
+```typescript
+// Before
+const ref: React.MutableRefObject<string> = useRef("");
+
+// After  
+const ref: React.RefObject<string> = useRef("");
+```
+
+### Step 2: Add Null Checks
+```typescript
+// Before
+ref.current = "new value";
+
+// After
+if (ref.current !== null) {
+  ref.current = "new value";
+}
+```
+
+### Step 3: Handle Fallback Values
+```typescript
+// Before
+const value = ref.current;
+
+// After
+const value = ref.current || "";
+```
+
+### Step 4: Update Function Signatures
+```typescript
+// Before
+function processRef(ref: React.MutableRefObject<string>): void {
+  // ...
+}
+
+// After
+function processRef(ref: React.RefObject<string>): void {
+  // ...
+}
+```
+
+## When RefObject.current is Always Non-Null
+
+In some cases, you know the ref will always have a value (e.g., initialized with a default). You can use non-null assertion or type assertion:
+
+```typescript
+// Option 1: Non-null assertion (use sparingly)
+const textRef = useRef<string>("initial");
+textRef.current! += " more text";
+
+// Option 2: Type assertion (prefer this)
+const textRef = useRef<string>("initial");
+(textRef.current as string) += " more text";
+
+// Option 3: Defensive programming (recommended)
+const textRef = useRef<string>("initial");
+if (textRef.current !== null) {
+  textRef.current += " more text";
+}
+```
+
+## ESLint Configuration
+
+Add this to your ESLint config to catch deprecated usage:
+
+```json
+{
+  "rules": {
+    "@typescript-eslint/ban-types": [
+      "error",
+      {
+        "types": {
+          "React.MutableRefObject": {
+            "message": "Use React.RefObject instead - MutableRefObject is deprecated",
+            "fixWith": "React.RefObject"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+## Common Mistakes
+
+### ❌ Mistake 1: Forgetting null checks
+```typescript
+// Bad - assumes current is never null
+function updateRef(ref: React.RefObject<string>) {
+  ref.current = "new value"; // TypeScript error!
+}
+
+// Good - check for null
+function updateRef(ref: React.RefObject<string>) {
+  if (ref.current !== null) {
+    ref.current = "new value";
+  }
+}
+```
+
+### ❌ Mistake 2: Not handling fallbacks
+```typescript
+// Bad - could return null
+function getRefValue(ref: React.RefObject<string>): string {
+  return ref.current; // TypeScript error!
+}
+
+// Good - provide fallback
+function getRefValue(ref: React.RefObject<string>): string {
+  return ref.current || "";
+}
+```
+
+### ❌ Mistake 3: Mixed usage patterns
+```typescript
+// Bad - inconsistent types
+interface Props {
+  oldRef: React.MutableRefObject<string>; // Deprecated
+  newRef: React.RefObject<string>; // Current
+}
+
+// Good - consistent modern types
+interface Props {
+  textRef: React.RefObject<string>;
+  countRef: React.RefObject<number>;
+}
+```
+
+## Benefits of Using RefObject
+
+1. **Future-proof** - Aligns with React's current type definitions
+2. **Better null safety** - Forces consideration of null cases
+3. **Consistency** - Matches DOM element ref patterns
+4. **No deprecation warnings** - Keeps codebase warning-free
+5. **Type system alignment** - Works better with strict TypeScript
+
+## Checklist for the Assistant
+
+- [ ] Never suggest `React.MutableRefObject<T>` in type annotations
+- [ ] Always use `React.RefObject<T>` for ref types
+- [ ] Add null checks when modifying `ref.current`
+- [ ] Use nullish coalescing (`||`) for fallback values when reading `ref.current`
+- [ ] Update function parameters to use `RefObject` instead of `MutableRefObject`
+- [ ] Ensure component props use `RefObject` consistently
+- [ ] Test that null handling works correctly after migration
+- [ ] Remove any non-null assertions unless absolutely necessary
+
+This ensures modern React typing practices and eliminates deprecation warnings while maintaining type safety.
+# Use RefObject Instead of Deprecated MutableRefObject
+
+## Context
+React's `MutableRefObject<T>` type is deprecated in favor of `RefObject<T>`. While both types serve similar purposes for referencing DOM elements and storing mutable values, there are important differences in their type signatures that affect null safety and usage patterns.
+
+The key difference is:
+- `MutableRefObject<T>` has `current: T` (never null)
+- `RefObject<T>` has `current: T | null` (can be null)
+
+Using the deprecated `MutableRefObject<T>` will result in TypeScript warnings and should be replaced with `RefObject<T>` with proper null handling.
+
+## Rule
+1. **Never use** `React.MutableRefObject<T>` in type annotations - it's deprecated.
+2. **Always use** `React.RefObject<T>` for ref types.
+3. **Handle nullability** properly since `RefObject.current` can be `null`.
+4. **Add null checks** when accessing or modifying `ref.current`.
+5. **Use nullish coalescing** (`||`) when providing fallback values.
+
+## Examples
+
+### Basic Ref Usage
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+const textRef: React.MutableRefObject<string> = useRef("");
+
+function updateText(newText: string) {
+  textRef.current = newText; // No null safety
+}
+``` | ```typescript
+const textRef: React.RefObject<string> = useRef("");
+
+function updateText(newText: string) {
+  if (textRef.current !== null) {
+    textRef.current = newText; // Null-safe
+  }
+}
+``` |
+
+### Function Parameters
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+function processRef(
+  ref: React.MutableRefObject<string>
+): void {
+  ref.current += " processed";
+}
+``` | ```typescript
+function processRef(
+  ref: React.RefObject<string>
+): void {
+  if (ref.current !== null) {
+    ref.current += " processed";
+  }
+}
+``` |
+
+### Component Props
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+interface Props {
+  textRef: React.MutableRefObject<string>;
+  countRef: React.MutableRefObject<number>;
+}
+
+function MyComponent({ textRef, countRef }: Props) {
+  textRef.current = "updated";
+  countRef.current = 42;
+}
+``` | ```typescript
+interface Props {
+  textRef: React.RefObject<string>;
+  countRef: React.RefObject<number>;
+}
+
+function MyComponent({ textRef, countRef }: Props) {
+  if (textRef.current !== null) {
+    textRef.current = "updated";
+  }
+  if (countRef.current !== null) {
+    countRef.current = 42;
+  }
+}
+``` |
+
+### Reading Values with Fallbacks
+| ❌ Bad (deprecated) | ✅ Good (current) |
+|---|---|
+| ```typescript
+function getValue(
+  ref: React.MutableRefObject<string>
+): string {
+  return ref.current; // Always assumes non-null
+}
+``` | ```typescript
+function getValue(
+  ref: React.RefObject<string>
+): string {
+  return ref.current || ""; // Handles null case
+}
+``` |
+
+## Common Patterns
+
+### State Management with Refs
+```typescript
+// ✅ Good - Handle null properly
+function useAccumulatedText(): {
+  textRef: React.RefObject<string>;
+  appendText: (text: string) => void;
+  clearText: () => void;
+} {
+  const textRef = useRef<string>("");
+
+  const appendText = useCallback((text: string) => {
+    if (textRef.current !== null) {
+      textRef.current += text;
+    }
+  }, []);
+
+  const clearText = useCallback(() => {
+    if (textRef.current !== null) {
+      textRef.current = "";
+    }
+  }, []);
+
+  return { textRef, appendText, clearText };
+}
+```
+
+### Streaming/Connection Management
+```typescript
+// ✅ Good - Null-safe ref operations
+function StreamingManager({
+  accumulatedTextRef,
+  currentAgentRef
+}: {
+  accumulatedTextRef: React.RefObject<string>;
+  currentAgentRef: React.RefObject<string>;
+}): void {
+  // Reset refs safely
+  if (accumulatedTextRef.current !== null) {
+    accumulatedTextRef.current = "";
+  }
+  if (currentAgentRef.current !== null) {
+    currentAgentRef.current = "";
+  }
+
+  // Update refs safely
+  const updateRefs = (text: string, agent: string) => {
+    if (accumulatedTextRef.current !== null) {
+      accumulatedTextRef.current += text;
+    }
+    if (currentAgentRef.current !== null) {
+      currentAgentRef.current = agent;
+    }
+  };
+}
+```
+
+### DOM Element Refs
+```typescript
+// ✅ Good - Handle DOM element refs properly
+function useElementRef(): {
+  elementRef: React.RefObject<HTMLDivElement>;
+  focusElement: () => void;
+} {
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  const focusElement = useCallback(() => {
+    if (elementRef.current) { // DOM refs are naturally nullable
+      elementRef.current.focus();
+    }
+  }, []);
+
+  return { elementRef, focusElement };
+}
+```
+
+## Migration Strategy
+
+### Step 1: Update Type Annotations
+```typescript
+// Before
+const ref: React.MutableRefObject<string> = useRef("");
+
+// After  
+const ref: React.RefObject<string> = useRef("");
+```
+
+### Step 2: Add Null Checks
+```typescript
+// Before
+ref.current = "new value";
+
+// After
+if (ref.current !== null) {
+  ref.current = "new value";
+}
+```
+
+### Step 3: Handle Fallback Values
+```typescript
+// Before
+const value = ref.current;
+
+// After
+const value = ref.current || "";
+```
+
+### Step 4: Update Function Signatures
+```typescript
+// Before
+function processRef(ref: React.MutableRefObject<string>): void {
+  // ...
+}
+
+// After
+function processRef(ref: React.RefObject<string>): void {
+  // ...
+}
+```
+
+## When RefObject.current is Always Non-Null
+
+In some cases, you know the ref will always have a value (e.g., initialized with a default). You can use non-null assertion or type assertion:
+
+```typescript
+// Option 1: Non-null assertion (use sparingly)
+const textRef = useRef<string>("initial");
+textRef.current! += " more text";
+
+// Option 2: Type assertion (prefer this)
+const textRef = useRef<string>("initial");
+(textRef.current as string) += " more text";
+
+// Option 3: Defensive programming (recommended)
+const textRef = useRef<string>("initial");
+if (textRef.current !== null) {
+  textRef.current += " more text";
+}
+```
+
+## ESLint Configuration
+
+Add this to your ESLint config to catch deprecated usage:
+
+```json
+{
+  "rules": {
+    "@typescript-eslint/ban-types": [
+      "error",
+      {
+        "types": {
+          "React.MutableRefObject": {
+            "message": "Use React.RefObject instead - MutableRefObject is deprecated",
+            "fixWith": "React.RefObject"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+## Common Mistakes
+
+### ❌ Mistake 1: Forgetting null checks
+```typescript
+// Bad - assumes current is never null
+function updateRef(ref: React.RefObject<string>) {
+  ref.current = "new value"; // TypeScript error!
+}
+
+// Good - check for null
+function updateRef(ref: React.RefObject<string>) {
+  if (ref.current !== null) {
+    ref.current = "new value";
+  }
+}
+```
+
+### ❌ Mistake 2: Not handling fallbacks
+```typescript
+// Bad - could return null
+function getRefValue(ref: React.RefObject<string>): string {
+  return ref.current; // TypeScript error!
+}
+
+// Good - provide fallback
+function getRefValue(ref: React.RefObject<string>): string {
+  return ref.current || "";
+}
+```
+
+### ❌ Mistake 3: Mixed usage patterns
+```typescript
+// Bad - inconsistent types
+interface Props {
+  oldRef: React.MutableRefObject<string>; // Deprecated
+  newRef: React.RefObject<string>; // Current
+}
+
+// Good - consistent modern types
+interface Props {
+  textRef: React.RefObject<string>;
+  countRef: React.RefObject<number>;
+}
+```
+
+## Benefits of Using RefObject
+
+1. **Future-proof** - Aligns with React's current type definitions
+2. **Better null safety** - Forces consideration of null cases
+3. **Consistency** - Matches DOM element ref patterns
+4. **No deprecation warnings** - Keeps codebase warning-free
+5. **Type system alignment** - Works better with strict TypeScript
+
+## Checklist for the Assistant
+
+- [ ] Never suggest `React.MutableRefObject<T>` in type annotations
+- [ ] Always use `React.RefObject<T>` for ref types
+- [ ] Add null checks when modifying `ref.current`
+- [ ] Use nullish coalescing (`||`) for fallback values when reading `ref.current`
+- [ ] Update function parameters to use `RefObject` instead of `MutableRefObject`
+- [ ] Ensure component props use `RefObject` consistently
+- [ ] Test that null handling works correctly after migration
+- [ ] Remove any non-null assertions unless absolutely necessary
+
+This ensures modern React typing practices and eliminates deprecation warnings while maintaining type safety.

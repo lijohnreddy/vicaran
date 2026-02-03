@@ -1,0 +1,225 @@
+---
+globs: *.tsx
+alwaysApply: false
+---
+
+# NEVER Use ANY ESLint Disable Comments - ZERO TOLERANCE POLICY
+
+## Context
+ESLint rules exist to catch real issues, enforce consistent code patterns, and prevent bugs. Using ANY form of `eslint-disable` comment bypasses these important checks instead of addressing the underlying problems. This creates technical debt, hides real issues, and makes the codebase less maintainable.
+
+**This is a ZERO TOLERANCE policy** - there are NO acceptable exceptions for disabling ESLint rules in this codebase.
+
+## Rule: NEVER Use ANY ESLint Disable Directive
+1. **FORBIDDEN**: All forms of ESLint disable comments:
+   - `/* eslint-disable */`
+   - `/* eslint-disable-next-line */`
+   - `// eslint-disable-next-line`
+   - `/* eslint-disable rule-name */`
+   - `// eslint-disable-next-line rule-name`
+   - `/* eslint-disable-line */`
+   - Any variant of the above
+
+2. **ALWAYS fix the root cause** instead of disabling the rule.
+
+3. **When encountering ESLint errors**, use these strategies:
+   - **Fix the actual issue** that the rule is catching
+   - **Refactor the code** to follow the pattern the rule enforces
+   - **Use proper alternatives** that satisfy the rule's requirements
+   - **Separate concerns** if the rule indicates architectural issues
+
+## Why This Rule Exists
+
+ESLint rules prevent:
+- **Real bugs** (missing dependencies, type issues, accessibility problems)
+- **Performance issues** (unnecessary re-renders, memory leaks)
+- **Security vulnerabilities** (XSS, unsafe practices)
+- **Maintainability problems** (inconsistent patterns, hidden complexity)
+- **Accessibility violations** (missing alt text, improper ARIA usage)
+
+Disabling rules means these problems go undetected and can cause:
+- Runtime errors in production
+- Poor user experience
+- Security breaches
+- Difficult debugging sessions
+- Technical debt accumulation
+
+## Common Rules and How to Fix Them (Never Disable)
+
+### `react-hooks/exhaustive-deps`
+| ❌ FORBIDDEN | ✅ Correct Fix |
+|---|---|
+| ```tsx
+useEffect(() => {
+  processData();
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+``` | ```tsx
+// Option 1: Add missing dependencies
+useEffect(() => {
+  processData();
+}, [processData]);
+
+// Option 2: Move function inside effect
+useEffect(() => {
+  function processData() {
+    // logic here
+  }
+  processData();
+}, []);
+
+// Option 3: Use useCallback to stabilize
+const processData = useCallback(() => {
+  // logic here
+}, [actualDependencies]);
+``` |
+
+### `react/no-unescaped-entities`
+| ❌ FORBIDDEN | ✅ Correct Fix |
+|---|---|
+| ```tsx
+// eslint-disable-next-line react/no-unescaped-entities
+<p>Sarah's workflow</p>
+``` | ```tsx
+<p>Sarah&rsquo;s workflow</p>
+// OR
+<p>{"Sarah's workflow"}</p>
+``` |
+
+### `@typescript-eslint/no-explicit-any`
+| ❌ FORBIDDEN | ✅ Correct Fix |
+|---|---|
+| ```tsx
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const data: any = response;
+``` | ```tsx
+interface ResponseType {
+  id: string;
+  name: string;
+}
+const data: ResponseType = response;
+``` |
+
+### `jsx-a11y/alt-text`
+| ❌ FORBIDDEN | ✅ Correct Fix |
+|---|---|
+| ```tsx
+// eslint-disable-next-line jsx-a11y/alt-text
+<img src="photo.jpg" />
+``` | ```tsx
+<img src="photo.jpg" alt="Description of photo" />
+// OR for decorative images
+<img src="photo.jpg" alt="" aria-hidden="true" />
+``` |
+
+### `@typescript-eslint/no-unused-vars`
+| ❌ FORBIDDEN | ✅ Correct Fix |
+|---|---|
+| ```tsx
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const unusedVar = getValue();
+``` | ```tsx
+// Remove if truly unused
+// OR prefix with underscore if intentionally unused
+const _unusedVar = getValue();
+// OR actually use the variable
+const neededVar = getValue();
+doSomethingWith(neededVar);
+``` |
+
+## Root Cause Analysis Process
+
+When ESLint flags an issue:
+
+1. **Read the error message** - ESLint tells you exactly what's wrong
+2. **Understand the rule's purpose** - Why does this rule exist? What is it preventing?
+3. **Identify the real problem** - What needs to change in the code structure?
+4. **Apply the proper fix** - Refactor, add dependencies, fix types, improve accessibility
+5. **Verify the solution** - Ensure code still works and is more robust
+
+## Real Example from This Codebase
+
+### The Problem
+```tsx
+// ❌ What I wrongly did
+useEffect(() => {
+  if (queue.globalStatus === "uploading") {
+    processQueue();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [queue.globalStatus]); // WRONG - disabled the rule instead of fixing
+```
+
+### The Correct Fix
+```tsx
+// ✅ Proper solution - move logic inside effect
+useEffect(() => {
+  if (queue.globalStatus === "uploading") {
+    // Move processQueue logic directly here to avoid dependency issues
+    // OR properly stabilize processQueue with useCallback and correct dependencies
+  }
+}, [queue.globalStatus, /* other stable dependencies */]);
+```
+
+## Benefits of Fixing Root Causes
+
+1. **More robust code** that handles edge cases properly
+2. **Better performance** by addressing inefficient patterns  
+3. **Improved accessibility** by fixing real a11y issues
+4. **Enhanced type safety** with proper TypeScript types
+5. **Consistent patterns** following project conventions
+6. **Easier debugging** because code follows predictable rules
+7. **Fewer production bugs** because issues are caught early
+
+## When You Think You Need to Disable a Rule
+
+**STOP** - You don't. Instead:
+
+1. **Research the rule** - Read the ESLint documentation for the rule
+2. **Understand the purpose** - What real problem is it preventing?
+3. **Find the proper solution** - Every ESLint error has a correct fix
+4. **Refactor if needed** - Sometimes the rule reveals deeper architectural issues
+5. **Ask for help** if you're stuck - But never disable the rule
+
+## Project-Specific Patterns
+
+Common fixes in this codebase:
+- **React hooks**: Include all dependencies, use useCallback for stability
+- **TypeScript**: Define proper interfaces instead of using `any`
+- **Accessibility**: Add proper ARIA attributes and alt text
+- **JSX**: Use HTML entities for quotes and apostrophes
+- **Imports**: Remove unused imports, organize properly
+
+## Emergency Exception Process
+
+There are **NO exceptions** to this rule. If you encounter what seems like a false positive:
+
+1. **Document the issue** in detail with examples
+2. **Research alternative solutions** 
+3. **Consider if the rule configuration** needs project-wide adjustment
+4. **Consult the team** for architectural guidance
+5. **NEVER use eslint-disable** as a temporary solution
+
+## Enforcement
+
+This rule is enforced by:
+- Code review process
+- Automated linting in CI/CD
+- Pre-commit hooks
+- Regular codebase audits
+
+**Any pull request containing eslint-disable comments will be rejected.**
+
+## Checklist for the Assistant
+- [ ] **NEVER suggest any form of eslint-disable comment** under any circumstances
+- [ ] When encountering ESLint errors, always analyze the root cause
+- [ ] Research the specific rule's purpose and recommended solutions
+- [ ] Provide proper fixes that address the underlying issue
+- [ ] If unsure about the fix, research the rule documentation
+- [ ] Test that fixes actually resolve issues without breaking functionality
+- [ ] Ensure fixes follow project patterns and conventions
+
+## Remember
+ESLint rules are guardrails that keep our code safe, performant, and maintainable. Disabling them is like removing safety equipment - it might seem easier in the moment, but it creates dangerous conditions that will cause problems later.
+
+**When in doubt, fix the code - never disable the rule.**
