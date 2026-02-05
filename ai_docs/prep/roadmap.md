@@ -127,6 +127,9 @@
 - [ ] Create `app/api/agent-callback/route.ts`
   - [ ] Add shared secret authentication via `X-Agent-Secret` header
   - [ ] Handle callback types: SOURCE_FOUND, CLAIM_EXTRACTED, FACT_CHECKED, BIAS_ANALYZED, TIMELINE_EVENT, SUMMARY_UPDATED, INVESTIGATION_COMPLETE, INVESTIGATION_FAILED
+  - [ ] **NEW**: Handle `INVESTIGATION_STARTED` callback to set status = "in_progress"
+  - [ ] **NEW**: Handle `INVESTIGATION_PARTIAL` callback for graceful degradation
+  - [ ] Return created IDs (source_id, claim_id) for session state propagation
   - [ ] Implement type-safe request validation
   - [ ] Save data to appropriate tables based on callback type
 
@@ -193,42 +196,64 @@
   - [ ] Configure model as `gemini-2.5-flash`
   - [ ] Set up `before_agent_callback` for state initialization
   - [ ] Configure sub_agents with investigation_pipeline
+  - [ ] **Call `INVESTIGATION_STARTED` callback when pipeline begins**
+  - [ ] Implement plan approval flow with `[PLAN_APPROVAL_REQUIRED]` marker
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/sub_agents/source_finder.py`
-  - [ ] Implement source discovery with Tavily Search API
-  - [ ] Implement URL content extraction with Jina Reader
-  - [ ] Add credibility scoring logic
-  - [ ] Configure callback to POST sources to `/api/agent-callback`
+  - [ ] Implement Tavily Search API for source discovery
+  - [ ] Implement Jina Reader for content extraction
+  - [ ] **Per-source processing (NOT batch)**:
+    - [ ] For each source: fetch → summarize (500 chars) → stream → save
+    - [ ] Stream format: `📄 Analyzing source X/15: {title}...`
+    - [ ] Include credibility rating and key finding in stream
+  - [ ] Add credibility scoring (1-5 based on domain lookup)
+  - [ ] POST each source via callback API
+  - [ ] **Store returned `source_id` in session state `source_id_map`**
+  - [ ] Output final summary with credibility breakdown
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/sub_agents/claim_extractor.py`
-  - [ ] Implement claim extraction from source content
-  - [ ] Configure callback to POST claims to `/api/agent-callback`
+  - [ ] **Read source summaries from session state (NOT raw content)**
+  - [ ] Extract and rank claims from summarized sources
+  - [ ] POST each claim via callback API
+  - [ ] **Store returned `claim_id` in session state `claim_id_map`**
+  - [ ] Link claims to source_ids from `source_id_map`
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/sub_agents/fact_checker.py`
-  - [ ] Implement claim verification against multiple sources
-  - [ ] Generate supporting/contradicting evidence
-  - [ ] Configure callback to POST fact_checks to `/api/agent-callback`
+  - [ ] **Read `claim_id_map` from session state to get claim IDs**
+  - [ ] **Read `source_id_map` from session state to get source IDs**
+  - [ ] Verify claims against source evidence
+  - [ ] POST fact_checks with correct `claim_id` and `source_id`
+  - [ ] Stream verification results per claim
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/sub_agents/bias_analyzer.py`
-  - [ ] Implement simplified bias scoring (single score per source)
-  - [ ] Configure callback to UPDATE sources with bias_score
+  - [ ] Implement simplified bias scoring (0-10 scale)
+  - [ ] **Quick mode**: Overall investigation bias only
+  - [ ] **Detailed mode**: Per-source bias scores
+  - [ ] POST bias analysis via callback API
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/sub_agents/timeline_builder.py`
-  - [ ] Implement date extraction from sources
-  - [ ] Configure callback to POST timeline_events to `/api/agent-callback`
+  - [ ] **Check `skip_timeline` flag in session state**
+  - [ ] If skip: output `[TIMELINE_SKIPPED]` and return
+  - [ ] Extract dates from sources
+  - [ ] POST timeline_events via callback API
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/sub_agents/summary_writer.py`
-  - [ ] Implement investigation summary generation
-  - [ ] Configure callback to UPDATE investigation summary
+  - [ ] Generate investigation summary with citations
+  - [ ] UPDATE investigation summary via callback API
+  - [ ] Output `[INVESTIGATION_COMPLETE]` marker
 
 - [ ] Create `apps/vicaran-agent/vicaran_agent/callbacks.py`
   - [ ] Implement `initialize_investigation_state` callback
-  - [ ] Implement `collect_sources_callback` for source tracking
+  - [ ] **Implement `batch_save_sources` with `source_id_map` storage**
+  - [ ] **Implement `batch_save_claims` with `claim_id_map` storage**
+  - [ ] Implement `save_final_summary` callback
 
-- [ ] Create `apps/vicaran-agent/vicaran_agent/tools/web_callback.py`
-  - [ ] Implement `post_to_callback_api()` function
-  - [ ] Handle shared secret authentication
-  - [ ] Handle error cases gracefully
+- [ ] Create `apps/vicaran-agent/vicaran_agent/tools/callback_api_tool.py`
+  - [ ] Implement `callback_api_tool()` function
+  - [ ] Use `X-Agent-Secret` header for authentication
+  - [ ] **Return and parse created IDs from API response**
+  - [ ] Handle error cases gracefully (don't break pipeline)
+
 
 ### Agent Configuration
 [Goal: Configure agent for local development and production]
@@ -315,6 +340,21 @@
   - [ ] Left column: Chat interface (60%)
   - [ ] Right column: Canvas with tabs (40%)
   - [ ] Responsive design for smaller screens
+
+### Browser Refresh Recovery
+[Goal: Handle page refresh without losing investigation state]
+
+- [ ] Implement status-based recovery in workspace page
+  - [ ] On load: check investigation.status from database
+  - [ ] If status = "in_progress": start canvas polling immediately
+  - [ ] If status = "pending_approval": show plan approval UI
+  - [ ] If status = "completed": show final results
+
+- [ ] Implement chat history reconnection
+  - [ ] Store ADK session_id in investigation record
+  - [ ] On refresh: reconnect to same ADK session
+  - [ ] Fetch session history to restore chat messages
+  - [ ] Resume SSE stream for new messages
 
 ### Chat Interface
 [Goal: Display real-time agent conversation with streaming updates]

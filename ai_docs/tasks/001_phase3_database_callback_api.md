@@ -895,6 +895,47 @@ All identified concerns are minor and can be addressed in post-hackathon phases.
 
 ---
 
+## 12. New Callback Types Added (2026-02-04)
+
+### INVESTIGATION_STARTED
+- **Trigger:** Agent begins processing investigation
+- **Status Change:** `pending` → `active`
+- **Updates:** Sets `started_at = now()`
+- **Payload:** `{ type: "INVESTIGATION_STARTED", investigation_id: uuid }`
+
+### INVESTIGATION_PARTIAL
+- **Trigger:** Agent has partial results but couldn't fully complete (timeout, rate limit, etc.)
+- **Status Change:** `active` → `partial`
+- **Updates:** Sets `summary`, `partial_reason`, optionally `overall_bias_score`
+- **Payload:** 
+```json
+{
+  "type": "INVESTIGATION_PARTIAL",
+  "investigation_id": "uuid",
+  "data": {
+    "summary": "Partial findings...",
+    "partial_reason": "Rate limit reached after processing 5/10 sources",
+    "overall_bias_score": 2.5
+  }
+}
+```
+
+### Schema Updates (Migration 0005_happy_siren)
+- Added `partial` to `investigation_status` enum
+- Added `started_at` timestamp column (nullable)
+- Added `partial_reason` text column (nullable)
+
+### Callback Logic Summary
+| Callback | Status Change | Other Updates |
+|----------|---------------|---------------|
+| `INVESTIGATION_STARTED` | pending → active | Set `started_at = now()` |
+| `INVESTIGATION_COMPLETE` | active → completed | Set `summary`, `overall_bias_score` |
+| `INVESTIGATION_PARTIAL` | active → partial | Set `summary`, `partial_reason` |
+| `INVESTIGATION_FAILED` | active → failed | (No additional data stored) |
+
+---
+
 *Template Version: 1.3*  
 *Task Created: 2026-02-02*  
+*Task Updated: 2026-02-04*  
 *Task Number: 001*

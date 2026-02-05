@@ -88,6 +88,24 @@ const investigationCompleteSchema = z.object({
     }),
 });
 
+// NEW: INVESTIGATION_STARTED callback schema
+const investigationStartedSchema = z.object({
+    type: z.literal("INVESTIGATION_STARTED"),
+    investigation_id: z.string().uuid(),
+    data: z.object({}).optional(), // No additional data required
+});
+
+// NEW: INVESTIGATION_PARTIAL callback schema (graceful degradation)
+const investigationPartialSchema = z.object({
+    type: z.literal("INVESTIGATION_PARTIAL"),
+    investigation_id: z.string().uuid(),
+    data: z.object({
+        summary: z.string(), // Partial findings
+        partial_reason: z.string(), // Why it couldn't complete (timeout, rate limit, etc.)
+        overall_bias_score: z.number().min(0).max(5).optional(),
+    }),
+});
+
 const investigationFailedSchema = z.object({
     type: z.literal("INVESTIGATION_FAILED"),
     investigation_id: z.string().uuid(),
@@ -324,6 +342,56 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ success: true });
                 } catch (error) {
                     console.error("INVESTIGATION_COMPLETE callback error:", error);
+                    return NextResponse.json({
+                        success: true,
+                        warning: error instanceof Error ? error.message : "Unknown error",
+                    });
+                }
+            }
+
+            // NEW: INVESTIGATION_STARTED - Agent started processing
+            case "INVESTIGATION_STARTED": {
+                const payload = investigationStartedSchema.parse(body);
+
+                try {
+                    await db
+                        .update(investigations)
+                        .set({
+                            status: "active",
+                            started_at: new Date(),
+                            updated_at: new Date(),
+                        })
+                        .where(eq(investigations.id, payload.investigation_id));
+
+                    return NextResponse.json({ success: true });
+                } catch (error) {
+                    console.error("INVESTIGATION_STARTED callback error:", error);
+                    return NextResponse.json({
+                        success: true,
+                        warning: error instanceof Error ? error.message : "Unknown error",
+                    });
+                }
+            }
+
+            // NEW: INVESTIGATION_PARTIAL - Graceful degradation (agent has partial results)
+            case "INVESTIGATION_PARTIAL": {
+                const payload = investigationPartialSchema.parse(body);
+
+                try {
+                    await db
+                        .update(investigations)
+                        .set({
+                            status: "partial",
+                            summary: payload.data.summary,
+                            partial_reason: payload.data.partial_reason,
+                            overall_bias_score: payload.data.overall_bias_score?.toFixed(2),
+                            updated_at: new Date(),
+                        })
+                        .where(eq(investigations.id, payload.investigation_id));
+
+                    return NextResponse.json({ success: true });
+                } catch (error) {
+                    console.error("INVESTIGATION_PARTIAL callback error:", error);
                     return NextResponse.json({
                         success: true,
                         warning: error instanceof Error ? error.message : "Unknown error",

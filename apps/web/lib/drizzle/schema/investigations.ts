@@ -9,6 +9,7 @@ export const investigationStatusEnum = pgEnum("investigation_status", [
     "pending",
     "active",
     "completed",
+    "partial",  // NEW: Agent completed with partial results (graceful degradation)
     "failed"
 ]);
 
@@ -27,7 +28,9 @@ export const investigations = pgTable(
         status: investigationStatusEnum("status").default("pending").notNull(),
         summary: text("summary"), // Nullable - agent fills later via summary_writer
         overall_bias_score: text("overall_bias_score"), // 0.00-5.00 scale (average across sources)
+        partial_reason: text("partial_reason"), // NEW: Why investigation completed partially (timeout, rate limit, etc.)
         created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+        started_at: timestamp("started_at", { withTimezone: true }), // NEW: When agent started processing
         updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     },
     (t) => [
