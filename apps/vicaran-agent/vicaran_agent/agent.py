@@ -4,7 +4,7 @@ Root agent for the Vicaran investigation system.
 
 from google.adk.agents import LlmAgent, SequentialAgent
 
-from .callbacks import initialize_investigation_state
+from .callbacks import initialize_investigation_state, pipeline_started_callback
 from .prompts import ORCHESTRATOR_INSTRUCTION
 from .sub_agents import (
     bias_analyzer,
@@ -33,6 +33,8 @@ investigation_pipeline = SequentialAgent(
         summary_writer,     # Generates summary → investigation_summary
     ],
     description="Sequential pipeline executing the investigation workflow stages",
+    # Deterministic status update - fires when pipeline starts (not LLM-dependent)
+    before_agent_callback=pipeline_started_callback,
 )
 
 # =============================================================================

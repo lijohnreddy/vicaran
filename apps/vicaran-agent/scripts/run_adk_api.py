@@ -71,7 +71,6 @@ def main() -> None:
         "api_server",
         f"--session_service_uri={database_url}",
         "--port=8000",
-        "--reload",
         ".",
     ]
 

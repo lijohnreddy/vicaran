@@ -3,11 +3,12 @@ Callback API tool for communicating with the Next.js backend.
 Sends investigation data to the database via the agent-callback API endpoint.
 """
 
-import os
 from typing import Any
 
 import httpx
 from google.adk.tools import ToolContext
+
+from vicaran_agent.config import config
 
 
 def callback_api_tool(
@@ -32,8 +33,8 @@ def callback_api_tool(
     if not investigation_id:
         return {"success": False, "error": "No investigation_id in session state"}
 
-    api_url = os.getenv("CALLBACK_API_URL", "http://localhost:3000/api/agent-callback")
-    api_secret = os.getenv("AGENT_SECRET", "")
+    api_url = config.callback_api_url
+    api_secret = config.agent_secret
 
     # API expects 'type' not 'callback_type'
     payload = {
@@ -49,8 +50,7 @@ def callback_api_tool(
     }
 
     # DEBUG MODE - Enable with DEBUG_MODE=true in .env
-    debug_mode = os.getenv("DEBUG_MODE", "false").lower() == "true"
-    if debug_mode:
+    if config.debug_mode:
         print(f"\n🚀 CALLBACK FIRED: {callback_type}")
         print(f"🆔 Investigation ID: {investigation_id}")
         print(f"📦 PAYLOAD: {str(data)[:200]}...")
@@ -60,17 +60,17 @@ def callback_api_tool(
         response.raise_for_status()
         result = response.json()
 
-        if debug_mode:
+        if config.debug_mode:
             print(f"✅ RESPONSE: {result}")
 
         # API returns created IDs: source_id, claim_id, fact_check_id, event_id
         return {"success": True, **result}
     except httpx.HTTPStatusError as e:
         error_msg = f"HTTP {e.response.status_code}: {e.response.text[:200]}"
-        if debug_mode:
+        if config.debug_mode:
             print(f"❌ HTTP ERROR: {error_msg}")
         return {"success": False, "error": error_msg}
     except Exception as e:
-        if debug_mode:
+        if config.debug_mode:
             print(f"❌ ERROR: {str(e)}")
         return {"success": False, "error": str(e)}

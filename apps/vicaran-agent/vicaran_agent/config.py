@@ -1,5 +1,5 @@
 """
-Configuration management for the competitor analysis agent.
+Configuration management for the Vicaran investigation agent.
 """
 
 from typing import Any
@@ -8,11 +8,11 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class CompetitorAnalysisConfig(BaseSettings):
-    """Configuration for the competitor analysis agent system."""
+class VicearanConfig(BaseSettings):
+    """Configuration for the Vicaran investigation agent system."""
 
     model_config = SettingsConfigDict(
-        env_file=[".env", ".env.local"],  # Load both files
+        env_file=[".env", ".env.local"],
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -24,41 +24,45 @@ class CompetitorAnalysisConfig(BaseSettings):
         default="us-central1", description="Google Cloud location"
     )
 
-    # Database Configuration
-    database_url: str = Field(default="", description="PostgreSQL database URL")
+    # API Configuration
+    callback_api_url: str = Field(
+        default="http://localhost:3000/api/agent-callback",
+        description="URL for callback API",
+    )
+    agent_secret: str = Field(default="", description="Secret for API authentication")
 
     # Agent Configuration
-    agent_name: str = Field(
-        default="competitor_analysis_agent", description="Agent name"
+    agent_name: str = Field(default="vicaran_agent", description="Agent name")
+    default_model: str = Field(
+        default="gemini-2.5-flash", description="Default AI model"
     )
-    model: str = Field(default="gemini-2.5-flash", description="AI model to use")
+    reasoning_model: str = Field(
+        default="gemini-2.5-pro", description="Model for complex reasoning tasks"
+    )
 
-    # Research Configuration
-    max_iterations: int = 3  # Maximum iterations for validation loops
+    # Investigation Limits
+    quick_mode_source_limit: int = Field(
+        default=15, description="Max sources in Quick mode"
+    )
+    detailed_mode_source_limit: int = Field(
+        default=30, description="Max sources in Detailed mode"
+    )
 
-    def get_database_url(self) -> str:
-        """Get PostgreSQL database URL from configuration."""
-        if not self.database_url:
-            raise ValueError(
-                "DATABASE_URL environment variable is required. "
-                "Please set it to your PostgreSQL connection string."
-            )
-        return self.database_url
+    # Debug
+    debug_mode: bool = Field(default=False, description="Enable debug logging")
 
     def validate_required_settings(self) -> dict[str, Any]:
         """Validate configuration and return status."""
         missing: list[str] = []
         warnings: list[str] = []
 
-        # Required settings
-        if not self.database_url:
-            missing.append("DATABASE_URL")
-
         # Warnings for optional but recommended settings
         if not self.google_cloud_project:
             warnings.append(
                 "GOOGLE_CLOUD_PROJECT not set - Google Cloud features may not work"
             )
+        if not self.agent_secret:
+            warnings.append("AGENT_SECRET not set - API authentication disabled")
 
         return {
             "valid": len(missing) == 0,
@@ -66,35 +70,10 @@ class CompetitorAnalysisConfig(BaseSettings):
             "warnings": warnings,
             "config": {
                 "agent_name": self.agent_name,
-                "model": self.model,
+                "default_model": self.default_model,
             },
         }
 
-    def fail_fast_validation(self) -> None:
-        """Validate required configuration and fail immediately if missing."""
-        validation_result = self.validate_required_settings()
-
-        if not validation_result["valid"]:
-            missing_vars = validation_result["missing"]
-            error_msg = (
-                f"CRITICAL: Missing required environment variables: {', '.join(missing_vars)}\n\n"
-                "These values are required for the ADK agent to function:\n"
-            )
-
-            for var in missing_vars:
-                if var == "DATABASE_URL":
-                    error_msg += f"  • {var}: PostgreSQL connection string\n"
-                else:
-                    error_msg += f"  • {var}: Required configuration value\n"
-
-            error_msg += (
-                "\nPlease set these environment variables and restart the service."
-            )
-            raise ValueError(error_msg)
-
 
 # Global configuration instance
-config = CompetitorAnalysisConfig()
-
-# Validate on import
-config.fail_fast_validation()
+config = VicearanConfig()

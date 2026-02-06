@@ -8,9 +8,9 @@ import {
     factChecks,
     timelineEvents,
     investigations,
+    users,
 } from "@/lib/drizzle/schema";
 import { eq } from "drizzle-orm";
-import { getInvestigation } from "@/lib/queries/investigations";
 
 // Validate shared secret authentication
 function validateAuth(request: NextRequest): boolean {
@@ -114,7 +114,7 @@ const investigationFailedSchema = z.object({
     }),
 });
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
     try {
         // Authentication check
         if (!validateAuth(request)) {
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
         const callbackType = body.type;
         const investigationId = body.investigation_id;
 
-        // Verify investigation exists (user clarification requirement)
-        if (investigationId) {
+        // Verify investigation exists (skip for INVESTIGATION_STARTED which can create new ones)
+        if (investigationId && callbackType !== "INVESTIGATION_STARTED") {
             // We don't have user_id in callback, so just check if investigation exists
             const [investigation] = await db
                 .select()
@@ -349,19 +349,52 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            // NEW: INVESTIGATION_STARTED - Agent started processing
+            // INVESTIGATION_STARTED - Agent started processing
+            // Supports both: (1) Frontend-first flow (update existing) and (2) ADK-only mode (create new)
             case "INVESTIGATION_STARTED": {
                 const payload = investigationStartedSchema.parse(body);
 
                 try {
-                    await db
-                        .update(investigations)
-                        .set({
+                    // Check if investigation already exists (Frontend-first flow)
+                    const [existingInvestigation] = await db
+                        .select()
+                        .from(investigations)
+                        .where(eq(investigations.id, payload.investigation_id))
+                        .limit(1);
+
+                    if (existingInvestigation) {
+                        // Update existing investigation (normal frontend flow)
+                        await db
+                            .update(investigations)
+                            .set({
+                                status: "active",
+                                started_at: new Date(),
+                                updated_at: new Date(),
+                            })
+                            .where(eq(investigations.id, payload.investigation_id));
+                    } else {
+                        // Create new investigation (ADK-only mode - for testing)
+                        // Get a default user for the FK constraint
+                        const [defaultUser] = await db.select().from(users).limit(1);
+
+                        if (!defaultUser) {
+                            return NextResponse.json(
+                                { error: "No users found in database. Please create a user first." },
+                                { status: 400 }
+                            );
+                        }
+
+                        await db.insert(investigations).values({
+                            id: payload.investigation_id,
+                            user_id: defaultUser.id,
+                            session_id: payload.investigation_id, // Use investigation_id as session_id for ADK-only mode
+                            title: "ADK Investigation",
+                            brief: "Investigation started from ADK Web UI",
+                            mode: "quick",
                             status: "active",
                             started_at: new Date(),
-                            updated_at: new Date(),
-                        })
-                        .where(eq(investigations.id, payload.investigation_id));
+                        });
+                    }
 
                     return NextResponse.json({ success: true });
                 } catch (error) {

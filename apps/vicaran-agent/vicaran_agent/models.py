@@ -1,258 +1,174 @@
 """
-Data models for the competitor analysis agent system.
+Data models for the Vicaran investigation agent system.
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
-class ResearchRequest(BaseModel):
-    """User request for competitor analysis."""
+# =============================================================================
+# INVESTIGATION REQUEST MODELS
+# =============================================================================
 
-    target_market: str = Field(..., description="Target market or industry to analyze")
-    research_depth: Literal["basic", "standard", "comprehensive"] = Field(
-        default="standard", description="Depth of research required"
+
+class InvestigationRequest(BaseModel):
+    """User request for investigation."""
+
+    topic: str = Field(..., description="Topic or claim to investigate")
+    mode: Literal["quick", "detailed"] = Field(
+        default="quick", description="Investigation mode"
     )
-    competitor_list: list[str] | None = Field(
-        default=None, description="Specific competitors to analyze"
+    user_sources: list[str] = Field(
+        default_factory=list, description="User-provided source URLs"
     )
-    specific_focus: str | None = Field(
-        default=None,
-        description="Specific areas to focus on (e.g., 'pricing', 'features')",
-    )
-    max_competitors: int | None = Field(
-        default=5, description="Maximum number of competitors to analyze"
-    )
-    include_swot: bool = Field(
-        default=True, description="Include SWOT analysis in the report"
-    )
-    include_pricing: bool = Field(
-        default=True, description="Include pricing matrix in the report"
+    focus_areas: list[str] | None = Field(
+        default=None, description="Specific areas to focus on"
     )
 
 
-class CompetitorData(BaseModel):
-    """Data structure for individual competitor information."""
+class InvestigationConfig(BaseModel):
+    """Configuration for an investigation run."""
 
-    name: str = Field(..., description="Company name")
-    website: str = Field(..., description="Primary website URL")
-    description: str = Field(..., description="Company description")
-    market_position: str = Field(..., description="Market position and positioning")
-    key_features: list[str] = Field(
-        default_factory=list, description="Key product/service features"
+    investigation_id: str = Field(..., description="Unique investigation ID")
+    mode: Literal["quick", "detailed"] = Field(
+        default="quick", description="Investigation mode"
     )
-    pricing_model: str = Field(..., description="Pricing strategy and model")
-    target_customers: list[str] = Field(
-        default_factory=list, description="Target customer segments"
+    skip_timeline: bool = Field(
+        default=True, description="Skip timeline construction (Quick mode)"
     )
-    strengths: list[str] = Field(
-        default_factory=list, description="Competitive strengths"
+    bias_level: Literal["overall", "per_source"] = Field(
+        default="overall", description="Bias analysis level"
     )
-    weaknesses: list[str] = Field(
-        default_factory=list, description="Identified weaknesses"
-    )
-    recent_news: list[str] = Field(
-        default_factory=list, description="Recent company news and updates"
-    )
-    funding_info: str | None = Field(
-        default=None, description="Funding information if available"
-    )
-    employee_count: str | None = Field(
-        default=None, description="Company size information"
-    )
+    source_limit: int = Field(default=15, description="Maximum sources to analyze")
 
 
-class MarketAnalysis(BaseModel):
-    """Market size and analysis data."""
-
-    market_size: str = Field(..., description="Total addressable market size")
-    growth_rate: str = Field(..., description="Market growth rate")
-    key_trends: list[str] = Field(default_factory=list, description="Key market trends")
-    market_segments: list[str] = Field(
-        default_factory=list, description="Market segments"
-    )
-    market_drivers: list[str] = Field(
-        default_factory=list, description="Key market drivers"
-    )
-    market_challenges: list[str] = Field(
-        default_factory=list, description="Market challenges and barriers"
-    )
+# =============================================================================
+# SOURCE MODELS
+# =============================================================================
 
 
-class ResearchOutline(BaseModel):
-    """Structured research plan from Section Planner."""
+class Source(BaseModel):
+    """Discovered source from investigation."""
 
-    target_market: str = Field(..., description="Target market being analyzed")
-    research_depth: str = Field(..., description="Depth of research")
-    competitor_list: list[str] = Field(
-        default_factory=list, description="List of competitors to analyze"
+    url: str = Field(..., description="Source URL")
+    title: str = Field(..., description="Source title")
+    summary: str = Field(..., description="Source summary (max 500 chars)")
+    credibility_score: int = Field(
+        default=3, ge=1, le=5, description="Credibility score (1-5 stars)"
     )
-    research_sections: list[str] = Field(
-        default_factory=list, description="Research sections to complete"
+    key_claims: list[str] = Field(
+        default_factory=list, description="Key claims from this source"
     )
-    timeline_days: int = Field(default=7, description="Timeline for research")
-    sections: list[str] = Field(
-        default_factory=list, description="Research sections to complete"
-    )
-    research_questions: list[str] = Field(
-        default_factory=list, description="Key research questions to answer"
-    )
-    search_queries: list[str] = Field(
-        default_factory=list, description="Initial search queries to execute"
-    )
-    expected_deliverables: list[str] = Field(
-        default_factory=list, description="Expected research outputs"
-    )
+    domain: str = Field(default="", description="Source domain")
+    is_reachable: bool = Field(default=True, description="Whether content was fetched")
+    source_id: str | None = Field(default=None, description="Database ID after save")
 
 
-class ValidationResult(BaseModel):
-    """Result from data validation agent."""
-
-    is_complete: bool = Field(..., description="Whether the data is complete")
-    missing_data: list[str] = Field(
-        default_factory=list, description="Missing data elements"
-    )
-    quality_score: float = Field(default=0.0, description="Data quality score (0-1)")
-    recommendations: list[str] = Field(
-        default_factory=list, description="Recommendations for improvement"
-    )
-    # Legacy fields for backward compatibility
-    is_valid: bool = Field(
-        default=True, description="Whether the data is valid and complete"
-    )
-    missing_fields: list[str] = Field(
-        default_factory=list, description="Missing required fields"
-    )
-    data_quality_issues: list[str] = Field(
-        default_factory=list, description="Data quality issues found"
-    )
-    completeness_score: float = Field(
-        default=0.0, description="Completeness score (0-1)"
-    )
+# =============================================================================
+# CLAIM MODELS
+# =============================================================================
 
 
-class EscalationDecision(BaseModel):
-    """Decision from escalation checker agent."""
+class Claim(BaseModel):
+    """Extracted claim from sources."""
 
-    needs_enhanced_search: bool = Field(
-        ..., description="Whether enhanced search is needed"
+    claim_text: str = Field(..., description="The claim text")
+    source_ids: list[str] = Field(
+        default_factory=list, description="Source IDs supporting this claim"
     )
-    search_priority: str = Field(..., description="Priority level for enhanced search")
-    additional_queries: list[str] = Field(
-        default_factory=list, description="Additional search queries needed"
+    importance_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Importance score (0-1)"
     )
-    # Legacy fields for backward compatibility
-    should_escalate: bool = Field(
-        default=False, description="Whether to escalate to enhanced search"
-    )
-    escalation_reason: str = Field(
-        default="", description="Reason for escalation or not escalating"
-    )
-    priority_areas: list[str] = Field(
-        default_factory=list, description="Priority areas for enhanced search"
-    )
-    search_strategies: list[str] = Field(
-        default_factory=list, description="Recommended search strategies"
-    )
+    claim_id: str | None = Field(default=None, description="Database ID after save")
 
 
-class CompetitorAnalysisResult(BaseModel):
-    """Complete competitor analysis result."""
+class FactCheck(BaseModel):
+    """Fact check result for a claim."""
 
-    market_analysis: str = Field(..., description="Market analysis summary")
-    competitor_profiles: list[CompetitorData] = Field(
-        default_factory=list, description="Competitor profiles"
+    claim_id: str = Field(..., description="ID of the claim being verified")
+    verdict: Literal["VERIFIED", "PARTIALLY_TRUE", "FALSE", "UNVERIFIED"] = Field(
+        ..., description="Verification verdict"
     )
-    pricing_matrix: dict[str, Any] = Field(
-        default_factory=dict, description="Pricing comparison matrix"
-    )
-    swot_analysis: dict[str, Any] = Field(
-        default_factory=dict, description="SWOT analysis"
-    )
-    recommendations: list[str] = Field(
-        default_factory=list, description="Strategic recommendations"
-    )
-    data_sources: list[str] = Field(
-        default_factory=list, description="Data sources used"
-    )
-    generated_at: str = Field(..., description="Generation timestamp")
-
-    # Legacy fields for backward compatibility
-    target_market: str = Field(default="", description="Analyzed target market")
-    research_timestamp: datetime | None = Field(
-        default=None, description="When analysis was conducted"
-    )
-    research_depth: str = Field(
-        default="standard", description="Depth of research conducted"
-    )
-    top_competitors: list[CompetitorData] = Field(
-        default_factory=list, description="Top competitors analyzed"
-    )
-    feature_matrix: dict[str, list[str]] = Field(
-        default_factory=dict, description="Feature comparison matrix"
-    )
-    competitive_positioning: dict[str, str] = Field(
-        default_factory=dict, description="Competitive positioning map"
-    )
-    opportunities: list[str] = Field(
-        default_factory=list, description="Identified market opportunities"
-    )
-    threats: list[str] = Field(
-        default_factory=list, description="Identified market threats"
-    )
+    evidence_summary: str = Field(..., description="Summary of supporting evidence")
     confidence_score: float = Field(
-        default=0.0, description="Confidence score of the analysis (0-1)"
+        default=0.5, ge=0.0, le=1.0, description="Confidence in verdict"
     )
-    limitations: list[str] = Field(
-        default_factory=list, description="Known limitations of the analysis"
+    fact_check_id: str | None = Field(
+        default=None, description="Database ID after save"
     )
 
 
-class SessionState(BaseModel):
+# =============================================================================
+# BIAS ANALYSIS MODELS
+# =============================================================================
+
+
+class BiasAnalysis(BaseModel):
+    """Bias analysis result."""
+
+    score: float = Field(
+        ..., ge=0.0, le=10.0, description="Overall bias score (0-10)"
+    )
+    interpretation: str = Field(..., description="Bias interpretation")
+    pro_count: int = Field(default=0, description="Number of pro-topic sources")
+    neutral_count: int = Field(default=0, description="Number of neutral sources")
+    critical_count: int = Field(default=0, description="Number of critical sources")
+    recommendation: str = Field(default="", description="Recommendation for balance")
+    bias_id: str | None = Field(default=None, description="Database ID after save")
+
+
+# =============================================================================
+# TIMELINE MODELS
+# =============================================================================
+
+
+class TimelineEvent(BaseModel):
+    """Event in investigation timeline."""
+
+    event_date: str = Field(..., description="Event date (ISO format YYYY-MM-DD)")
+    event_text: str = Field(..., description="Event description (max 200 chars)")
+    source_ids: list[str] = Field(
+        default_factory=list, description="Source IDs mentioning this event"
+    )
+    event_id: str | None = Field(default=None, description="Database ID after save")
+
+
+# =============================================================================
+# SESSION STATE MODEL
+# =============================================================================
+
+
+class InvestigationSessionState(BaseModel):
     """Session state for agent communication."""
 
-    # Research context
-    research_request: ResearchRequest | None = Field(
-        default=None, description="Original research request"
+    # Investigation context
+    investigation_id: str = Field(..., description="Investigation ID")
+    investigation_config: InvestigationConfig | None = Field(
+        default=None, description="Investigation configuration"
     )
-    research_outline: ResearchOutline | None = Field(
-        default=None, description="Research outline from Section Planner"
-    )
-
-    # Search results
-    search_results: dict[str, Any] = Field(
-        default_factory=dict, description="Search results from search agent"
+    investigation_plan: str = Field(
+        default="", description="Generated investigation plan"
     )
 
-    # Collected data
-    raw_search_results: list[dict] = Field(
-        default_factory=list, description="Raw search results"
-    )
-    processed_data: dict[str, Any] = Field(
-        default_factory=dict, description="Processed research data"
-    )
+    # Agent outputs (stored via output_key)
+    discovered_sources: str = Field(default="", description="Source finder output")
+    extracted_claims: str = Field(default="", description="Claim extractor output")
+    fact_check_results: str = Field(default="", description="Fact checker output")
+    bias_analysis: str = Field(default="", description="Bias analyzer output")
+    timeline_events: str = Field(default="", description="Timeline builder output")
+    investigation_summary: str = Field(default="", description="Summary writer output")
 
-    # Validation and refinement
-    validation_results: list[ValidationResult] = Field(
-        default_factory=list, description="Data validation results"
+    # ID maps for cross-agent reference
+    source_id_map: list[dict] = Field(
+        default_factory=list, description="Map of saved source IDs"
     )
-    escalation_decisions: list[EscalationDecision] = Field(
-        default_factory=list, description="Escalation decisions"
-    )
-
-    # Final results
-    analysis_result: CompetitorAnalysisResult | None = Field(
-        default=None, description="Final analysis result"
+    claim_id_map: list[dict] = Field(
+        default_factory=list, description="Map of saved claim IDs"
     )
 
     # Metadata
-    current_iteration: int = Field(default=0, description="Current loop iteration")
-    agent_history: list[str] = Field(
-        default_factory=list, description="History of agent executions"
+    created_at: datetime = Field(
+        default_factory=datetime.now, description="Session creation time"
     )
-    progress_log: list[str] = Field(
-        default_factory=list, description="Progress log messages"
-    )
-    error_log: list[str] = Field(default_factory=list, description="Error log")
