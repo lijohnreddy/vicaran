@@ -140,6 +140,19 @@ function AgentHeader({ message }: { message: Message }) {
  * Message footer with timestamp and copy functionality
  */
 function MessageFooter({ message }: { message: Message }) {
+  // Use client-only timestamp to avoid hydration mismatch
+  const [formattedTime, setFormattedTime] = React.useState<string>("");
+
+  React.useEffect(() => {
+    // Only format timestamp on client to avoid server/client mismatch
+    setFormattedTime(
+      message.timestamp.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
+  }, [message.timestamp]);
+
   return (
     <div
       className={cn(
@@ -149,12 +162,7 @@ function MessageFooter({ message }: { message: Message }) {
           : "text-secondary-foreground"
       )}
     >
-      <span suppressHydrationWarning>
-        {message.timestamp.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
+      <span>{formattedTime}</span>
       {message.type === "model" && (
         <CopyButton
           text={message.content}

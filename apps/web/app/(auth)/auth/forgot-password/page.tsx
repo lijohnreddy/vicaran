@@ -6,7 +6,7 @@ export default async function Page() {
   // Redirect authenticated users to main app
   const userId = await getCurrentUserId();
   if (userId) {
-    redirect("/chat");
+    redirect("/home");
   }
 
   return (

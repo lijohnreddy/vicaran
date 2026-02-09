@@ -13,7 +13,7 @@ from pathlib import Path
 def check_port_available(host: str, port: int) -> bool:
     """
     Check if a port is available for binding.
-    
+
     Returns True if port is available, False if already in use.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -66,20 +66,20 @@ def main() -> None:
     # Default port
     port = 8000
     host = "127.0.0.1"
-    
+
     # Check if port is available before trying to start
     if not check_port_available(host, port):
         print(f"❌ Error: Port {port} is already in use!")
         print("")
         print("Another process is using this port. To find and kill it:")
         print(f"  Windows: netstat -ano | findstr :{port}")
-        print(f"           taskkill /PID <PID> /F")
+        print("           taskkill /PID <PID> /F")
         print(f"  Linux/Mac: lsof -i :{port}")
-        print(f"             kill -9 <PID>")
+        print("             kill -9 <PID>")
         print("")
         print("Then try running the ADK server again.")
         sys.exit(1)
-    
+
     script_dir = Path(__file__).parent.parent  # Go up to competitor-analysis-agent/
     env_file = script_dir / ".env.local"
 

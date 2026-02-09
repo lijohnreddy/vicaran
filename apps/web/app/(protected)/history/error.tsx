@@ -48,10 +48,10 @@ export default function HistoryError({ error, reset }: HistoryErrorProps) {
           </Button>
           <Button
             variant="outline"
-            onClick={() => (window.location.href = "/chat")}
+            onClick={() => (window.location.href = "/home")}
             className="px-6"
           >
-            Go to Chat
+            Go to Home
           </Button>
         </div>
         {error.digest && (

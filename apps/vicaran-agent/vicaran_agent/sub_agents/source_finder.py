@@ -5,12 +5,13 @@ Source Finder agent - discovers additional sources via web search.
 from google.adk.agents import LlmAgent
 
 from ..callbacks import batch_save_sources
+from ..config import config
 from ..prompts import SOURCE_FINDER_INSTRUCTION
 from ..tools import callback_api_tool, jina_reader_tool, tavily_search_tool
 
 source_finder = LlmAgent(
     name="source_finder",
-    model="gemini-2.5-flash",
+    model=config.default_model,
     instruction=SOURCE_FINDER_INSTRUCTION,
     tools=[tavily_search_tool, jina_reader_tool, callback_api_tool],
     after_agent_callback=batch_save_sources,

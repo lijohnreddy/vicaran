@@ -3,16 +3,14 @@ Callback implementations for the Vicaran investigation workflow.
 All callbacks follow ADK CallbackContext patterns.
 """
 
+import asyncio
 import re
-import uuid
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 from google.adk.agents.callback_context import CallbackContext
 
 from .config import config
-from .tools.callback_api import callback_api_tool
-
 
 # =============================================================================
 # URL NORMALIZATION HELPER
@@ -65,43 +63,49 @@ def initialize_investigation_state(callback_context: CallbackContext) -> None:
     """
     session = callback_context._invocation_context.session
     session_state = session.state
-    
+
     # Extract user messages from session events (ADK stores messages here, not in user_prompt)
     user_prompt = ""
     for event in reversed(session.events or []):
         # Look for user role in event content
-        if hasattr(event, 'content') and event.content:
-            if hasattr(event.content, 'role') and event.content.role == 'user':
+        if hasattr(event, "content") and event.content:
+            if hasattr(event.content, "role") and event.content.role == "user":
                 # Extract text from parts
-                if hasattr(event.content, 'parts'):
+                if hasattr(event.content, "parts"):
                     for part in event.content.parts:
-                        if hasattr(part, 'text') and part.text:
+                        if hasattr(part, "text") and part.text:
                             user_prompt = part.text
                             break
         if user_prompt:
             break
-    
+
     # Fallback to state-based user_prompt if events don't have it
     if not user_prompt:
         user_prompt = session_state.get("user_prompt", "")
-    
+
     # Also check investigation_brief from initial state
     investigation_brief = session_state.get("investigation_brief", "")
 
     if config.debug_mode:
-        print(f"\n🔍 DEBUG: Extracting investigation ID")
+        print("\n🔍 DEBUG: Extracting investigation ID")
         print(f"   user_prompt (from events): '{user_prompt[:100]}...'")
-        print(f"   investigation_brief (from state): '{investigation_brief[:100] if investigation_brief else 'None'}...'")
+        print(
+            f"   investigation_brief (from state): '{investigation_brief[:100] if investigation_brief else 'None'}...'"
+        )
 
     # Extract investigation_id from prompt (format: "Investigation ID: uuid")
-    id_match = re.search(r"Investigation ID:\s*([a-f0-9-]+)", user_prompt, re.IGNORECASE)
+    id_match = re.search(
+        r"Investigation ID:\s*([a-f0-9-]+)", user_prompt, re.IGNORECASE
+    )
     if id_match:
         session_state["investigation_id"] = id_match.group(1)
         if config.debug_mode:
             print(f"   ✅ Extracted investigation_id: {id_match.group(1)}")
     else:
         # No mock ID - log error and use empty ID (callbacks will skip)
-        print("❌ ERROR: No investigation_id found in user message. Callbacks will be skipped.")
+        print(
+            "❌ ERROR: No investigation_id found in user message. Callbacks will be skipped."
+        )
         if config.debug_mode:
             print(f"   user_prompt was: '{user_prompt[:200]}...'")
         session_state["investigation_id"] = ""
@@ -155,11 +159,15 @@ def initialize_investigation_state(callback_context: CallbackContext) -> None:
     session_state["claims_accumulated"] = []
 
     if config.debug_mode:
-        print(f"\n\U0001f680 INVESTIGATION INITIALIZED")
+        print("\n\U0001f680 INVESTIGATION INITIALIZED")
         print(f"\U0001f194 ID: {session_state.get('investigation_id', 'Not found')}")
         print(f"\U0001f4cb Mode: {mode}")
         print(f"\U0001f4dd Title: {title}")
-        print(f"\U0001f4c4 Brief: {brief[:100]}..." if len(brief) > 100 else f"\U0001f4c4 Brief: {brief}")
+        print(
+            f"\U0001f4c4 Brief: {brief[:100]}..."
+            if len(brief) > 100
+            else f"\U0001f4c4 Brief: {brief}"
+        )
 
 
 # =============================================================================
@@ -199,14 +207,14 @@ def pipeline_started_callback(callback_context: CallbackContext) -> None:
     }
 
     if config.debug_mode:
-        print(f"\n\U0001f680 PIPELINE STARTED CALLBACK FIRED")
+        print("\n\U0001f680 PIPELINE STARTED CALLBACK FIRED")
         print(f"\U0001f194 Investigation ID: {investigation_id}")
 
     try:
         response = httpx.post(api_url, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
         if config.debug_mode:
-            print(f"\u2705 Status updated to 'in_progress'")
+            print("\u2705 Status updated to 'in_progress'")
     except Exception as e:
         if config.debug_mode:
             print(f"\u274c CALLBACK ERROR: {str(e)}")
@@ -229,6 +237,35 @@ def _parse_sources_from_output(output: str) -> list[dict[str, Any]]:
     return []
 
 
+def debug_claim_extractor_input(callback_context: CallbackContext) -> None:
+    """Debug callback to verify sources_accumulated reaches claim_extractor.
+    Also adds a rate-limit delay to prevent 429 errors."""
+    # Rate-limit delay: prevent Vertex AI 429 errors between sub-agents
+    import time
+    if config.debug_mode:
+        print("\n⏳ Rate-limit delay: waiting 5 seconds before claim extraction...")
+    time.sleep(5)
+
+    if config.debug_mode:
+        sources = callback_context.state.get("sources_accumulated", [])
+        print(f"\n🔍 DEBUG CLAIM_EXTRACTOR: Received {len(sources)} sources")
+        if sources:
+            for i, src in enumerate(sources[:3]):  # Show first 3
+                print(f"   Source {i+1}: {src.get('title', 'No title')[:50]}...")
+        else:
+            print("   ⚠️ sources_accumulated is EMPTY!")
+
+
+def rate_limit_delay(callback_context: CallbackContext) -> None:
+    """Add a small delay before each sub-agent to prevent Vertex AI 429 rate limits."""
+    import time
+    agent_name = getattr(callback_context, 'agent_name', 'unknown')
+    if config.debug_mode:
+        print(f"\n⏳ Rate-limit delay: waiting 5 seconds before {agent_name}...")
+    time.sleep(5)
+
+
+
 def batch_save_sources(callback_context: CallbackContext) -> None:
     """After source_finder completes, store source IDs for downstream agents.
 
@@ -241,8 +278,8 @@ def batch_save_sources(callback_context: CallbackContext) -> None:
         callback_context.state["source_id_map"] = []
 
     if config.debug_mode:
-        source_count = len(callback_context.state.get("source_id_map", []))
-        print(f"\n\U0001f4e6 BATCH SAVE SOURCES: {source_count} sources in map")
+        source_count = len(callback_context.state.get("sources_accumulated", []))
+        print(f"\n\U0001f4e6 BATCH SAVE SOURCES: {source_count} sources accumulated")
 
 
 def batch_save_claims(callback_context: CallbackContext) -> None:
@@ -255,9 +292,8 @@ def batch_save_claims(callback_context: CallbackContext) -> None:
         callback_context.state["claim_id_map"] = []
 
     if config.debug_mode:
-        claim_count = len(callback_context.state.get("claim_id_map", []))
-        print(f"\n\U0001f4e6 BATCH SAVE CLAIMS: {claim_count} claims in map")
-
+        claim_count = len(callback_context.state.get("claims_accumulated", []))
+        print(f"\n\U0001f4e6 BATCH SAVE CLAIMS: {claim_count} claims accumulated")
 
 
 def save_final_summary(callback_context: CallbackContext) -> None:
@@ -278,19 +314,22 @@ def save_final_summary(callback_context: CallbackContext) -> None:
     if "[INVESTIGATION_COMPLETE]" not in investigation_summary:
         return  # Not complete yet
 
-    # Extract overall bias score from summary (format: "Overall bias score: X.XX/10")
+    # Extract overall bias score from summary
+    # Matches formats: "**4/10**", "4/10", "4.5/10", "Overall bias score: 4/10"
     overall_bias_score = None
-    bias_match = re.search(r"Overall bias score:\s*([\d.]+)/10", investigation_summary, re.IGNORECASE)
+    bias_match = re.search(
+        r"\*?\*?(\d+(?:\.\d+)?)/10\*?\*?", investigation_summary
+    )
     if bias_match:
         try:
             # Convert from 0-10 scale to 0-5 scale (as expected by API schema)
             score_10 = float(bias_match.group(1))
-            overall_bias_score = score_10 / 2  # Convert 0-10 to 0-5 scale
+            overall_bias_score = round(score_10 / 2, 2)  # Convert 0-10 to 0-5 scale
         except ValueError:
             pass
 
     if config.debug_mode:
-        print(f"\n🎉 INVESTIGATION COMPLETE: Saving summary")
+        print("\n🎉 INVESTIGATION COMPLETE: Saving summary")
         print(f"   📊 Extracted bias score: {overall_bias_score} (0-5 scale)")
 
     # Make direct HTTP call (same pattern as pipeline_started_callback)
@@ -299,13 +338,15 @@ def save_final_summary(callback_context: CallbackContext) -> None:
     api_url = config.callback_api_url
     api_secret = config.agent_secret
 
+    # Build data dict, excluding None values to avoid JSON null (Zod rejects null)
+    data: dict = {"summary": investigation_summary}
+    if overall_bias_score is not None:
+        data["overall_bias_score"] = overall_bias_score
+
     payload = {
         "type": "INVESTIGATION_COMPLETE",
         "investigation_id": investigation_id,
-        "data": {
-            "summary": investigation_summary,
-            "overall_bias_score": overall_bias_score,
-        },
+        "data": data,
     }
 
     headers = {
@@ -317,7 +358,7 @@ def save_final_summary(callback_context: CallbackContext) -> None:
         response = httpx.post(api_url, json=payload, headers=headers, timeout=30)
         response.raise_for_status()
         if config.debug_mode:
-            print(f"\u2705 Summary saved to database")
+            print("\u2705 Summary saved to database")
     except Exception as e:
         if config.debug_mode:
             print(f"\u274c Failed to save summary: {e}")
@@ -347,4 +388,4 @@ def check_pipeline_status(callback_context: CallbackContext) -> None:
         if investigation_id:
             # This would be called via the tool, but we log it here
             if config.debug_mode:
-                print(f"\n\u26a0\ufe0f PIPELINE PARTIAL: Insufficient data")
+                print("\n\u26a0\ufe0f PIPELINE PARTIAL: Insufficient data")

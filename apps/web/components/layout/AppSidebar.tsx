@@ -46,7 +46,7 @@ export default function AppSidebar() {
   // Build navigation items based on user role
   const navItems = [
     { href: "/home", label: "Home", icon: Home },
-    { href: "/history", label: "History", icon: Clock },
+    { href: "/investigations", label: "History", icon: Clock },
     { href: "/profile", label: "Profile", icon: User },
     ...(userRole === "admin"
       ? [{ href: "/admin/models", label: "Admin", icon: Shield }]

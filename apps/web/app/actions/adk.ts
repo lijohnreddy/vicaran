@@ -2,6 +2,7 @@
 
 import { AdkSessionService } from "@/lib/adk/session-service";
 import { requireUserId } from "@/lib/auth";
+import { devLog } from "@/lib/utils/logger";
 
 /**
  * Server Action Result types for session creation with message
@@ -31,14 +32,14 @@ export async function createSessionWithMessage(
   investigationId?: string | null
 ): Promise<CreateSessionWithMessageResult> {
   try {
-    console.log("🚀 [ADK_ACTION] createSessionWithMessage called:", {
+    devLog("🚀 [ADK_ACTION] createSessionWithMessage called:", {
       hasSessionId: !!sessionId,
       messagePreview: userMessage.substring(0, 50),
     });
 
     // Get the current authenticated user
     const userId = await requireUserId();
-    console.log("✅ [ADK_ACTION] User authenticated:", userId);
+    devLog("✅ [ADK_ACTION] User authenticated:", userId);
 
     // Validate input
     if (!userMessage.trim()) {
@@ -53,14 +54,14 @@ export async function createSessionWithMessage(
 
     // Create new session if none provided
     if (!finalSessionId) {
-      console.log("🆕 [ADK_ACTION] Creating new ADK session...");
+      devLog("🆕 [ADK_ACTION] Creating new ADK session...");
 
       try {
         const newSession = await AdkSessionService.createSession(userId);
         finalSessionId = newSession.id;
         isNewSession = true;
 
-        console.log("✅ [ADK_ACTION] New session created:", finalSessionId);
+        devLog("✅ [ADK_ACTION] New session created:", finalSessionId);
       } catch (sessionError) {
         console.error("❌ [ADK_ACTION] Session creation failed:", sessionError);
         return {
@@ -72,12 +73,12 @@ export async function createSessionWithMessage(
 
     // Trigger message processing in the background
     // Changed from fire-and-forget to blocking for debugging
-    console.log(
+    devLog(
       "🚀 [ADK_ACTION] About to call triggerMessageProcessing..."
     );
     try {
       await triggerMessageProcessing(finalSessionId, userMessage, userId, investigationId || null);
-      console.log("✅ [ADK_ACTION] triggerMessageProcessing completed successfully");
+      devLog("✅ [ADK_ACTION] triggerMessageProcessing completed successfully");
     } catch (error) {
       console.error(
         "❌ [ADK_ACTION] triggerMessageProcessing FAILED:",
@@ -90,7 +91,7 @@ export async function createSessionWithMessage(
       };
     }
 
-    console.log("✅ [ADK_ACTION] Session with message created successfully:", {
+    devLog("✅ [ADK_ACTION] Session with message created successfully:", {
       sessionId: finalSessionId,
       isNewSession,
     });
@@ -129,7 +130,7 @@ async function triggerMessageProcessing(
   userId: string,
   investigationId: string | null
 ): Promise<void> {
-  console.log("📡 [ADK_ACTION] Triggering unified agent processing:", {
+  devLog("📡 [ADK_ACTION] Triggering unified agent processing:", {
     sessionId,
     messagePreview: userMessage.substring(0, 50),
     userId,
@@ -150,5 +151,5 @@ async function triggerMessageProcessing(
     throw new Error(result.error || "Failed to trigger message processing");
   }
 
-  console.log("✅ [ADK_ACTION] Agent processing initiated successfully");
+  devLog("✅ [ADK_ACTION] Agent processing initiated successfully");
 }

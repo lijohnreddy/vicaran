@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
+import { devLog } from "@/lib/utils/logger";
 
 interface ADKAgentRequest {
   app_name: string;
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Step 2: Extract and validate request data
     const { userId: requestUserId, message, sessionId } = await request.json();
 
-    console.log("[ADK CHAT] 📋 Processing request:", {
+    devLog("[ADK CHAT] 📋 Processing request:", {
       requestUserId,
       message: message?.substring(0, 50),
       sessionId,
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       streaming: false,
     };
 
-    console.log("[ADK CHAT] 🚀 Triggering ADK agent for session:", sessionId);
+    devLog("[ADK CHAT] 🚀 Triggering ADK agent for session:", sessionId);
 
     // Step 5: Fire-and-forget agent trigger
     fetch(`${adkUrl}/run`, {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         if (!response.ok) {
           console.error("[ADK CHAT] Agent trigger failed:", response.status);
         } else {
-          console.log("[ADK CHAT] Agent successfully triggered");
+          devLog("[ADK CHAT] Agent successfully triggered");
         }
       })
       .catch((error) => {

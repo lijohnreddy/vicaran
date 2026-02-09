@@ -24,7 +24,7 @@ export function RecentInvestigations({ investigations }: RecentInvestigationsPro
             <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Recent Investigations</h2>
                 <Link
-                    href="/history"
+                    href="/investigations"
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                     View all →

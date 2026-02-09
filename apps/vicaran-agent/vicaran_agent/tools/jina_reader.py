@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 import httpx
 from google.adk.tools import ToolContext
 
-
 # Blocked content indicators
 BLOCKED_CONTENT_INDICATORS = [
     "403 forbidden",
@@ -63,7 +62,7 @@ def jina_reader_tool(
         # Check for blocked/error content
         if is_blocked_content(content):
             if debug_mode:
-                print(f"⚠️ Content blocked or unavailable")
+                print("⚠️ Content blocked or unavailable")
             return {
                 "success": False,
                 "url": url,

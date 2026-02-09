@@ -5,6 +5,7 @@ Root agent for the Vicaran investigation system.
 from google.adk.agents import LlmAgent, SequentialAgent
 
 from .callbacks import initialize_investigation_state, pipeline_started_callback
+from .config import config
 from .prompts import ORCHESTRATOR_INSTRUCTION
 from .sub_agents import (
     bias_analyzer,
@@ -25,12 +26,12 @@ from .tools import analyze_source_tool, callback_api_tool
 investigation_pipeline = SequentialAgent(
     name="investigation_pipeline",
     sub_agents=[
-        source_finder,      # Discovers sources → discovered_sources
-        claim_extractor,    # Extracts claims → extracted_claims
-        fact_checker,       # Verifies claims → fact_check_results
-        bias_analyzer,      # Analyzes bias → bias_analysis
-        timeline_builder,   # Builds timeline → timeline_events (skipped in Quick mode)
-        summary_writer,     # Generates summary → investigation_summary
+        source_finder,  # Discovers sources → discovered_sources
+        claim_extractor,  # Extracts claims → extracted_claims
+        fact_checker,  # Verifies claims → fact_check_results
+        bias_analyzer,  # Analyzes bias → bias_analysis
+        timeline_builder,  # Builds timeline → timeline_events (skipped in Quick mode)
+        summary_writer,  # Generates summary → investigation_summary
     ],
     description="Sequential pipeline executing the investigation workflow stages",
     # Deterministic status update - fires when pipeline starts (not LLM-dependent)
@@ -43,7 +44,7 @@ investigation_pipeline = SequentialAgent(
 
 investigation_orchestrator = LlmAgent(
     name="investigation_orchestrator",
-    model="gemini-2.5-flash",
+    model=config.default_model,
     instruction=ORCHESTRATOR_INSTRUCTION,
     sub_agents=[investigation_pipeline],
     tools=[analyze_source_tool, callback_api_tool],

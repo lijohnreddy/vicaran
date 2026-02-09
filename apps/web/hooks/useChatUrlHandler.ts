@@ -1,48 +1,38 @@
-"use client";
-
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
-import { AdkSession } from "@/lib/adk/session-service";
-
-interface UseChatUrlHandlerConfig {
-  session: AdkSession | null;
-}
 
 /**
- * Handle URL error parameters from failed AI requests or navigation errors
- * Shows user-friendly toast notifications and cleans up URL parameters for better UX
+ * Hook to handle URL-based chat restoration
+ * Manages sessionId query parameter for chat continuity
  */
-export function useChatUrlHandler({ session }: UseChatUrlHandlerConfig): void {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export function useChatUrlHandler() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
 
-  // Handle URL error parameters
-  useEffect(() => {
-    const error = searchParams.get("error");
-    const userMessage = searchParams.get("userMessage");
+    const sessionId = searchParams.get("sessionId");
 
-    if (error) {
-      console.log("🔄 [URL_HANDLER] Handling error from URL params:", {
-        error,
-        userMessage,
-      });
+    /**
+     * Updates the URL with the current session ID
+     */
+    const updateUrlWithSession = (newSessionId: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("sessionId", newSessionId);
+        router.push(`/?${params.toString()}`, { scroll: false });
+    };
 
-      // Show error toast notification
-      toast.error("AI Request Failed", {
-        description: error,
-        duration: 8000, // Longer duration for important errors
-      });
+    /**
+     * Clears the session ID from the URL
+     */
+    const clearSessionFromUrl = () => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("sessionId");
+        const newUrl = params.toString() ? `/?${params.toString()}` : "/";
+        router.push(newUrl, { scroll: false });
+    };
 
-      // Clean up URL parameters for better UX
-      if (session?.id) {
-        const newUrl = `/chat/${session.id}`;
-        console.log(
-          "🧹 [URL_HANDLER] Cleaning up URL params, redirecting to:",
-          newUrl
-        );
-        router.replace(newUrl);
-      }
-    }
-  }, [searchParams, router, session?.id]);
+    return {
+        sessionId,
+        updateUrlWithSession,
+        clearSessionFromUrl,
+    };
 }

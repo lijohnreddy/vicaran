@@ -13,7 +13,7 @@ export type TitleGenerationResult =
   | { success: false; error: string };
 
 /**
- * Generate a session title from the first user message using Gemini 2.5 Flash
+ * Generate a session title from the first user message using Gemini 3 Pro
  *
  * @param userMessage - The first user message in the session
  * @returns Promise resolving to success/error result with generated title
@@ -32,7 +32,7 @@ export async function generateSessionTitle(
 
     // Use the full message without truncation - let AI see complete context
     const result = await generateText({
-      model: google("gemini-2.5-flash"),
+      model: google("gemini-3-pro-preview"),
       prompt: `Generate a concise, descriptive title (max 60 characters) for a chat session based on this user message:
 
 "${userMessage}"

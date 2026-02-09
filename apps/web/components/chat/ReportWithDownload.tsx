@@ -6,6 +6,7 @@ import { Download, Loader2, AlertCircle } from "lucide-react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { devLog } from "@/lib/utils/logger";
 
 interface ReportWithDownloadProps {
   content: string;
@@ -68,7 +69,7 @@ export function ReportWithDownload({ content }: ReportWithDownloadProps) {
       // Download the PDF
       pdf.save(filename);
 
-      console.log("✅ PDF generated successfully:", filename);
+      devLog("✅ PDF generated successfully:", filename);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to generate PDF";

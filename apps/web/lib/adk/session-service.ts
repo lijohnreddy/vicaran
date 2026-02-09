@@ -6,6 +6,7 @@ import {
 } from "@/lib/config/backend-config";
 import { getAuthHeaders } from "@/lib/config/server-auth";
 import type { SourceMetadata } from "@/lib/chat/types";
+import { devLog } from "@/lib/utils/logger";
 
 /**
  * ADK Session API Types based on ADK documentation
@@ -198,7 +199,7 @@ export class AdkSessionService {
     userId: string,
     initialState?: Record<string, unknown>
   ): Promise<AdkSession> {
-    console.log("🔍 [ADK_SESSION_SERVICE] Creating session:", {
+    devLog("🔍 [ADK_SESSION_SERVICE] Creating session:", {
       userId,
       deploymentType: backendConfig.deploymentType,
       initialState,
@@ -206,7 +207,7 @@ export class AdkSessionService {
 
     // Agent Engine uses v1 API with class_method calls
     if (shouldUseAgentEngine()) {
-      console.log(
+      devLog(
         "🤖 [ADK_SESSION_SERVICE] Agent Engine detected - calling create_session method"
       );
 
@@ -225,7 +226,7 @@ export class AdkSessionService {
         ...(await getAuthHeaders()),
       };
 
-      console.log("📤 [ADK_SESSION_SERVICE] Agent Engine request:", {
+      devLog("📤 [ADK_SESSION_SERVICE] Agent Engine request:", {
         endpoint,
         payload: createSessionPayload,
       });
@@ -236,7 +237,7 @@ export class AdkSessionService {
         body: JSON.stringify(createSessionPayload),
       });
 
-      console.log("📥 [ADK_SESSION_SERVICE] Agent Engine response:", {
+      devLog("📥 [ADK_SESSION_SERVICE] Agent Engine response:", {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
@@ -268,7 +269,7 @@ export class AdkSessionService {
       }
 
       const sessionData = await response.json();
-      console.log(
+      devLog(
         "📦 [ADK_SESSION_SERVICE] Agent Engine session data:",
         sessionData
       );
@@ -290,7 +291,7 @@ export class AdkSessionService {
         events: sessionData.output?.events || [],
       };
 
-      console.log(
+      devLog(
         "✅ [ADK_SESSION_SERVICE] Real Agent Engine session created:",
         {
           sessionId: agentEngineSession.id,
@@ -305,7 +306,7 @@ export class AdkSessionService {
     const sessionPath = `/apps/${ADK_APP_NAME}/users/${userId}/sessions`;
     const endpoint = getEndpointForPath(sessionPath);
 
-    console.log("🔍 [ADK_SESSION_SERVICE] Creating real session:", {
+    devLog("🔍 [ADK_SESSION_SERVICE] Creating real session:", {
       userId,
       sessionPath,
       endpoint,
@@ -321,7 +322,7 @@ export class AdkSessionService {
       ...(await getAuthHeaders()),
     };
 
-    console.log("📤 [ADK_SESSION_SERVICE] Request details:", {
+    devLog("📤 [ADK_SESSION_SERVICE] Request details:", {
       method: "POST",
       endpoint,
       headers,
@@ -334,7 +335,7 @@ export class AdkSessionService {
       body: JSON.stringify(requestBody),
     });
 
-    console.log("📥 [ADK_SESSION_SERVICE] Response details:", {
+    devLog("📥 [ADK_SESSION_SERVICE] Response details:", {
       ok: response.ok,
       status: response.status,
       statusText: response.statusText,
@@ -385,7 +386,7 @@ export class AdkSessionService {
   ): Promise<AdkSession | null> {
     // Agent Engine uses class_method calls for session retrieval
     if (shouldUseAgentEngine()) {
-      console.log(
+      devLog(
         "🔍 [ADK_SESSION_SERVICE] Agent Engine - calling get_session method"
       );
 
@@ -411,7 +412,7 @@ export class AdkSessionService {
       });
 
       if (!response.ok) {
-        console.log(
+        devLog(
           "❌ [ADK_SESSION_SERVICE] Agent Engine get_session failed:",
           response.status
         );
@@ -419,7 +420,7 @@ export class AdkSessionService {
       }
 
       const sessionData = await response.json();
-      console.log(
+      devLog(
         "📦 [ADK_SESSION_SERVICE] Agent Engine session data:",
         sessionData
       );
@@ -481,7 +482,7 @@ export class AdkSessionService {
   static async listSessions(userId: string): Promise<ListSessionsResponse> {
     // Agent Engine uses class_method calls for session listing
     if (shouldUseAgentEngine()) {
-      console.log(
+      devLog(
         "🔍 [ADK_SESSION_SERVICE] Agent Engine - calling list_sessions method"
       );
 
@@ -499,7 +500,7 @@ export class AdkSessionService {
         ...(await getAuthHeaders()),
       };
 
-      console.log(
+      devLog(
         "📤 [ADK_SESSION_SERVICE] Agent Engine list_sessions request:",
         {
           endpoint,
@@ -513,7 +514,7 @@ export class AdkSessionService {
         body: JSON.stringify(listSessionsPayload),
       });
 
-      console.log("📥 [ADK_SESSION_SERVICE] Agent Engine response:", {
+      devLog("📥 [ADK_SESSION_SERVICE] Agent Engine response:", {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
@@ -545,7 +546,7 @@ export class AdkSessionService {
       }
 
       const listSessionsData = await response.json();
-      console.log(
+      devLog(
         "📦 [ADK_SESSION_SERVICE] Agent Engine sessions data:",
         listSessionsData
       );
@@ -553,7 +554,7 @@ export class AdkSessionService {
       // Get sessions array from output
       const output = listSessionsData.output;
       if (!output || !Array.isArray(output.sessions)) {
-        console.log(
+        devLog(
           "⚠️ [ADK_SESSION_SERVICE] No sessions found in Agent Engine response"
         );
         return { sessions: [], sessionIds: [] };
@@ -571,7 +572,7 @@ export class AdkSessionService {
         })
       );
 
-      console.log(
+      devLog(
         "✅ [ADK_SESSION_SERVICE] Agent Engine list_sessions completed:",
         {
           sessionsCount: sessions.length,
@@ -626,7 +627,7 @@ export class AdkSessionService {
   static async deleteSession(userId: string, sessionId: string): Promise<void> {
     // Agent Engine uses class_method calls for session deletion
     if (shouldUseAgentEngine()) {
-      console.log(
+      devLog(
         "🗑️ [ADK_SESSION_SERVICE] Agent Engine - calling delete_session method"
       );
 
@@ -676,7 +677,7 @@ export class AdkSessionService {
         );
       }
 
-      console.log(
+      devLog(
         "✅ [ADK_SESSION_SERVICE] Agent Engine session deleted successfully"
       );
       return;
@@ -706,7 +707,7 @@ export class AdkSessionService {
     userId: string,
     sessionId: string
   ): Promise<(AdkSession & { events: AdkEvent[] }) | null> {
-    console.log("🔍 [ADK_SESSION_SERVICE] Fetching session with events:", {
+    devLog("🔍 [ADK_SESSION_SERVICE] Fetching session with events:", {
       userId,
       sessionId,
     });
@@ -715,13 +716,13 @@ export class AdkSessionService {
     const session = await this.getSession(userId, sessionId);
 
     if (!session) {
-      console.log("❌ [ADK_SESSION_SERVICE] Session not found");
+      devLog("❌ [ADK_SESSION_SERVICE] Session not found");
       return null;
     }
 
     // Events come directly from the session response
     const events = session.events || [];
-    console.log("✅ [ADK_SESSION_SERVICE] Session loaded with events:", {
+    devLog("✅ [ADK_SESSION_SERVICE] Session loaded with events:", {
       sessionId: session.id,
       eventsCount: events.length,
     });
@@ -734,7 +735,7 @@ export class AdkSessionService {
       session.state
     );
 
-    console.log(
+    devLog(
       "🔗 [ADK_SESSION_SERVICE] Extracted sources from session state:",
       {
         sourcesCount: Object.keys(sources).length,

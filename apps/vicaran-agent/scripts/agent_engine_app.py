@@ -291,7 +291,7 @@ def generate_service_account_name(agent_name: str) -> str:
     common_suffixes = ["agent", "analysis", "service", "processor", "engine", "app"]
     for suffix in common_suffixes:
         if name.endswith(f"-{suffix}"):
-            name = name[:-len(suffix)-1]
+            name = name[: -len(suffix) - 1]
             break
 
     # Step 3: Ensure it fits (30 total - 3 for "-sa" - 2 for potential "-2" = 25 max)
@@ -372,7 +372,9 @@ def ensure_service_account(
                 print(f"✅ Created service account: {service_account.email}")
 
                 # Wait for service account to propagate before assigning roles
-                print("⏳ Waiting 5 seconds for service account to propagate before role assignment...")
+                print(
+                    "⏳ Waiting 5 seconds for service account to propagate before role assignment..."
+                )
                 time.sleep(5)
 
                 # Assign required roles (will always return True for new account)
@@ -454,10 +456,7 @@ def _ensure_service_account_roles(project_id: str, sa_email: str) -> bool:
                     target_binding.members.append(member)
                 else:
                     # Create new binding using proper protobuf object
-                    new_binding = policy_pb2.Binding(
-                        role=role,
-                        members=[member]
-                    )
+                    new_binding = policy_pb2.Binding(role=role, members=[member])
                     policy.bindings.append(new_binding)
 
                 roles_added = True
@@ -497,8 +496,10 @@ def _create_and_output_service_account_key(
         try:
             # Wait a bit for service account to propagate across systems
             if attempt > 0:
-                wait_time = 2 ** attempt  # Exponential backoff: 2, 4 seconds
-                print(f"⏳ Waiting {wait_time} seconds for service account to propagate (attempt {attempt + 1}/{max_retries})...")
+                wait_time = 2**attempt  # Exponential backoff: 2, 4 seconds
+                print(
+                    f"⏳ Waiting {wait_time} seconds for service account to propagate (attempt {attempt + 1}/{max_retries})..."
+                )
                 time.sleep(wait_time)
 
             # Create service account key
@@ -884,14 +885,12 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(
-        f"""
+    print(f"""
     ╔═══════════════════════════════════════════════════════════╗
     ║                                                           ║
     ║   🤖 DEPLOYING AGENT TO VERTEX AI AGENT ENGINE ({args.env.upper()}) 🤖         ║
     ║                                                           ║
     ╚═══════════════════════════════════════════════════════════╝
-    """
-    )
+    """)
 
     deploy_agent_engine_app(args.env)

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { devLog } from "@/lib/utils/logger";
 
 // Base auth result type for consistent responses
 export type AuthResult = {
@@ -73,7 +74,7 @@ export async function signUpAction(
     const identity = data.user.identities[0];
     const emailVerified = identity.identity_data?.email_verified;
 
-    console.log("User exists, email verified:", emailVerified);
+    devLog("User exists, email verified:", emailVerified);
 
     if (emailVerified === true) {
       // User exists and email is already verified - they should log in instead

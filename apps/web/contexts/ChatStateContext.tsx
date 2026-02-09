@@ -72,7 +72,8 @@ export function ChatStateProvider({
   });
 
   // Handle URL error parameters
-  useChatUrlHandler({ session });
+  useChatUrlHandler();
+
 
   // Start polling when session exists
   useEffect(() => {

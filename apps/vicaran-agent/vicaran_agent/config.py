@@ -2,10 +2,22 @@
 Configuration management for the Vicaran investigation agent.
 """
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ValidationConfig(TypedDict):
+    agent_name: str
+    default_model: str
+
+
+class ValidationResult(TypedDict):
+    valid: bool
+    missing: list[str]
+    warnings: list[str]
+    config: ValidationConfig
 
 
 class VicearanConfig(BaseSettings):
@@ -34,10 +46,10 @@ class VicearanConfig(BaseSettings):
     # Agent Configuration
     agent_name: str = Field(default="vicaran_agent", description="Agent name")
     default_model: str = Field(
-        default="gemini-2.5-flash", description="Default AI model"
+        default="gemini-3-pro-preview", description="Default AI model"
     )
     reasoning_model: str = Field(
-        default="gemini-2.5-pro", description="Model for complex reasoning tasks"
+        default="gemini-3-pro-preview", description="Model for complex reasoning tasks"
     )
 
     # Investigation Limits
@@ -51,7 +63,7 @@ class VicearanConfig(BaseSettings):
     # Debug
     debug_mode: bool = Field(default=False, description="Enable debug logging")
 
-    def validate_required_settings(self) -> dict[str, Any]:
+    def validate_required_settings(self) -> ValidationResult:
         """Validate configuration and return status."""
         missing: list[str] = []
         warnings: list[str] = []

@@ -35,7 +35,7 @@ export function UpdatePasswordForm({
 
       if (result.success) {
         toast.success("Password updated successfully!");
-        router.push("/chat");
+        router.push("/home");
       } else {
         setError(result.error || "Failed to update password");
         toast.error(result.error || "Failed to update password");

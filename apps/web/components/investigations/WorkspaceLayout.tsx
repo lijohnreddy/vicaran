@@ -26,12 +26,21 @@ export function WorkspaceLayout({
     session,
 }: WorkspaceLayoutProps): React.JSX.Element {
     const [isCanvasCollapsed, setIsCanvasCollapsed] = useState(false);
+    const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false);
     const [chatWidthPercent, setChatWidthPercent] = useState(DEFAULT_CHAT_PERCENT);
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
 
     const handleToggleCanvas = useCallback(() => {
         setIsCanvasCollapsed((prev) => !prev);
+        // Exit fullscreen when closing canvas
+        if (!isCanvasCollapsed) {
+            setIsCanvasFullscreen(false);
+        }
+    }, [isCanvasCollapsed]);
+
+    const handleToggleFullscreen = useCallback(() => {
+        setIsCanvasFullscreen((prev) => !prev);
     }, []);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -80,34 +89,43 @@ export function WorkspaceLayout({
 
             {/* Main content area */}
             <div ref={containerRef} className="flex flex-1 overflow-hidden">
-                {/* Chat Column */}
-                <div
-                    className={cn(
-                        "flex flex-col overflow-hidden border-r border-border",
-                        isCanvasCollapsed ? "w-full" : ""
-                    )}
-                    style={isCanvasCollapsed ? undefined : { width: `${chatWidthPercent}%` }}
-                >
-                    <InvestigationChat investigation={investigation} session={session} />
-                </div>
+                {/* Chat Column - hidden when canvas is fullscreen */}
+                {!isCanvasFullscreen && (
+                    <div
+                        className={cn(
+                            "flex flex-col overflow-hidden border-r border-border",
+                            isCanvasCollapsed ? "w-full" : ""
+                        )}
+                        style={isCanvasCollapsed ? undefined : { width: `${chatWidthPercent}%` }}
+                    >
+                        <InvestigationChat investigation={investigation} session={session} />
+                    </div>
+                )}
 
                 {/* Canvas Column */}
                 {!isCanvasCollapsed && (
                     <>
-                        {/* Resize Handle */}
-                        <div
-                            className="group relative w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors"
-                            onMouseDown={handleMouseDown}
-                        >
-                            <div className="absolute inset-y-0 -left-1 -right-1" />
-                        </div>
+                        {/* Resize Handle - hidden when fullscreen */}
+                        {!isCanvasFullscreen && (
+                            <div
+                                className="group relative w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors"
+                                onMouseDown={handleMouseDown}
+                            >
+                                <div className="absolute inset-y-0 -left-1 -right-1" />
+                            </div>
+                        )}
 
                         {/* Canvas Content */}
                         <div
                             className="flex flex-col overflow-hidden"
-                            style={{ width: `${100 - chatWidthPercent}%` }}
+                            style={{ width: isCanvasFullscreen ? "100%" : `${100 - chatWidthPercent}%` }}
                         >
-                            <CanvasPanel investigationId={investigation.id} onClose={handleToggleCanvas} />
+                            <CanvasPanel
+                                investigationId={investigation.id}
+                                onClose={handleToggleCanvas}
+                                isFullscreen={isCanvasFullscreen}
+                                onToggleFullscreen={handleToggleFullscreen}
+                            />
                         </div>
                     </>
                 )}

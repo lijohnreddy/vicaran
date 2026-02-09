@@ -9,7 +9,7 @@ authors = [
 dependencies = [
     # Core ADK dependencies
     "google-adk>=1.14.1",
-    "google-genai>=1.24.0",
+    "google-genai>=1.51.0",
     # Service account management
     "google-cloud-iam>=2.19.1", # For service account and key management
     "google-cloud-resource-manager>=1.14.2", # For IAM policy binding

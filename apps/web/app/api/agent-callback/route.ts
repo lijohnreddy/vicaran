@@ -26,6 +26,8 @@ const sourceFoundSchema = z.object({
         url: z.string().url(),
         title: z.string().optional(),
         content_snippet: z.string().optional(),
+        summary: z.string().optional(), // Agent sends "summary" as alias for content_snippet
+        key_claims: z.array(z.string()).optional(), // Agent sends extracted claims
         credibility_score: z.number().int().min(1).max(5).optional(),
         is_user_provided: z.boolean().default(false),
     }),
@@ -45,7 +47,7 @@ const factCheckedSchema = z.object({
     investigation_id: z.string().uuid(),
     data: z.object({
         claim_id: z.string().uuid(),
-        source_id: z.string().uuid(),
+        source_id: z.string().uuid().optional(), // Optional: fact_checker may not have a DB source_id for evidence
         evidence_type: z.enum(["supporting", "contradicting"]),
         evidence_text: z.string(),
     }),
@@ -80,7 +82,7 @@ const summaryUpdatedSchema = z.object({
     investigation_id: z.string().uuid(),
     data: z.object({
         summary: z.string(),
-        overall_bias_score: z.number().min(0).max(5).optional(), // 0.00-5.00
+        overall_bias_score: z.number().min(0).max(5).nullable().optional(), // 0.00-5.00
     }),
 });
 
@@ -89,7 +91,7 @@ const investigationCompleteSchema = z.object({
     investigation_id: z.string().uuid(),
     data: z.object({
         summary: z.string(),
-        overall_bias_score: z.number().min(0).max(5).optional(),
+        overall_bias_score: z.number().min(0).max(5).nullable().optional(),
     }),
 });
 
@@ -107,7 +109,7 @@ const investigationPartialSchema = z.object({
     data: z.object({
         summary: z.string(), // Partial findings
         partial_reason: z.string(), // Why it couldn't complete (timeout, rate limit, etc.)
-        overall_bias_score: z.number().min(0).max(5).optional(),
+        overall_bias_score: z.number().min(0).max(5).nullable().optional(),
     }),
 });
 
@@ -163,7 +165,8 @@ export async function POST(request: NextRequest): Promise<Response> {
                             investigation_id: payload.investigation_id,
                             url: payload.data.url,
                             title: payload.data.title,
-                            content_snippet: payload.data.content_snippet,
+                            // Agent sends "summary" instead of "content_snippet" — use as fallback
+                            content_snippet: payload.data.content_snippet || payload.data.summary,
                             credibility_score: payload.data.credibility_score,
                             is_user_provided: payload.data.is_user_provided,
                         })
@@ -224,11 +227,29 @@ export async function POST(request: NextRequest): Promise<Response> {
                 const payload = factCheckedSchema.parse(body);
 
                 try {
+                    // Resolve source_id: use provided or fall back to claim's first linked source
+                    let resolvedSourceId = payload.data.source_id;
+                    if (!resolvedSourceId) {
+                        const [linkedSource] = await db
+                            .select({ source_id: claimSources.source_id })
+                            .from(claimSources)
+                            .where(eq(claimSources.claim_id, payload.data.claim_id))
+                            .limit(1);
+                        resolvedSourceId = linkedSource?.source_id;
+                    }
+
+                    if (!resolvedSourceId) {
+                        return NextResponse.json({
+                            success: true,
+                            warning: "No source_id available for fact check — skipping DB insert",
+                        });
+                    }
+
                     const [factCheck] = await db
                         .insert(factChecks)
                         .values({
                             claim_id: payload.data.claim_id,
-                            source_id: payload.data.source_id,
+                            source_id: resolvedSourceId,
                             evidence_type: payload.data.evidence_type,
                             evidence_text: payload.data.evidence_text,
                         })
@@ -336,7 +357,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                         .update(investigations)
                         .set({
                             summary: payload.data.summary,
-                            overall_bias_score: payload.data.overall_bias_score?.toFixed(2),
+                            overall_bias_score: payload.data.overall_bias_score != null ? payload.data.overall_bias_score.toFixed(2) : undefined,
                             updated_at: new Date(),
                         })
                         .where(eq(investigations.id, payload.investigation_id));
@@ -360,7 +381,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                         .set({
                             status: "completed",
                             summary: payload.data.summary,
-                            overall_bias_score: payload.data.overall_bias_score?.toFixed(2),
+                            overall_bias_score: payload.data.overall_bias_score != null ? payload.data.overall_bias_score.toFixed(2) : undefined,
                             updated_at: new Date(),
                         })
                         .where(eq(investigations.id, payload.investigation_id));
@@ -443,7 +464,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                             status: "partial",
                             summary: payload.data.summary,
                             partial_reason: payload.data.partial_reason,
-                            overall_bias_score: payload.data.overall_bias_score?.toFixed(2),
+                            overall_bias_score: payload.data.overall_bias_score != null ? payload.data.overall_bias_score.toFixed(2) : undefined,
                             updated_at: new Date(),
                         })
                         .where(eq(investigations.id, payload.investigation_id));

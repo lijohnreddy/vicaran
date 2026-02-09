@@ -1,11 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { MessageSquare } from "lucide-react";
 
 export function StartChattingButton() {
-  const handleStartChat = () => {
-    window.location.href = "/chat";
-  };
+    const router = useRouter();
 
-  return <Button onClick={handleStartChat}>Start Chatting</Button>;
+    return (
+        <Button
+            onClick={() => router.push("/")}
+            size="lg"
+            className="mt-2"
+        >
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Start Chatting
+        </Button>
+    );
 }

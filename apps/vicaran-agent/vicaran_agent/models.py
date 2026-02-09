@@ -7,7 +7,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
 # INVESTIGATION REQUEST MODELS
 # =============================================================================
@@ -108,9 +107,7 @@ class FactCheck(BaseModel):
 class BiasAnalysis(BaseModel):
     """Bias analysis result."""
 
-    score: float = Field(
-        ..., ge=0.0, le=10.0, description="Overall bias score (0-10)"
-    )
+    score: float = Field(..., ge=0.0, le=10.0, description="Overall bias score (0-10)")
     interpretation: str = Field(..., description="Bias interpretation")
     pro_count: int = Field(default=0, description="Number of pro-topic sources")
     neutral_count: int = Field(default=0, description="Number of neutral sources")

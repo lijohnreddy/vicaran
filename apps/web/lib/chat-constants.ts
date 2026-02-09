@@ -7,9 +7,9 @@
 
 export const CHAT_MODEL = {
   provider: "google",
-  name: "gemini-2.5-flash",
-  displayName: "Gemini 2.5 Flash",
-  openRouterModel: "google/gemini-2.5-flash",
+  name: "gemini-3-pro-preview",
+  displayName: "Gemini 3 Pro",
+  openRouterModel: "google/gemini-3-pro-preview",
   hasImageInput: true,
   hasObjectGeneration: true,
   hasToolUsage: true,

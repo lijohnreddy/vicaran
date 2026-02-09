@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEndpointForPath } from "@/lib/config/backend-config";
 import { getAuthHeaders } from "@/lib/config/server-auth";
+import { devLog } from "@/lib/utils/logger";
 
 /**
  * Health check endpoint that forwards to the ADK server's /health endpoint
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   try {
     // Get the backend /health endpoint using the proper configuration
     const backendHealthUrl = getEndpointForPath("/docs");
-    console.log("backendHealthUrl", backendHealthUrl);
+    devLog("backendHealthUrl", backendHealthUrl);
 
     // Get appropriate auth headers for the deployment type
     const authHeaders = await getAuthHeaders();

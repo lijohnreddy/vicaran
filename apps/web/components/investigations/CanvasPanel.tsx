@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { useCanvasPolling } from "@/hooks/useCanvasPolling";
@@ -13,6 +13,8 @@ import { GraphTab } from "@/components/canvas/GraphTab";
 interface CanvasPanelProps {
     investigationId: string;
     onClose: () => void;
+    isFullscreen?: boolean;
+    onToggleFullscreen?: () => void;
 }
 
 type CanvasTab = "brief" | "dashboard" | "graph";
@@ -22,7 +24,7 @@ type CanvasTab = "brief" | "dashboard" | "graph";
  * Brief and Dashboard show real content with 3-second polling
  * Graph shows interactive claim-evidence network
  */
-export function CanvasPanel({ investigationId, onClose }: CanvasPanelProps): React.JSX.Element {
+export function CanvasPanel({ investigationId, onClose, isFullscreen, onToggleFullscreen }: CanvasPanelProps): React.JSX.Element {
     const [activeTab, setActiveTab] = useState<CanvasTab>("brief");
     const user = useUser();
 
@@ -61,11 +63,29 @@ export function CanvasPanel({ investigationId, onClose }: CanvasPanelProps): Rea
                     ))}
                 </div>
 
-                {/* Close Button */}
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Close canvas</span>
-                </Button>
+                {/* Fullscreen & Close Buttons */}
+                <div className="flex items-center gap-1">
+                    {onToggleFullscreen && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onToggleFullscreen}
+                            className="h-8 w-8"
+                            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        >
+                            {isFullscreen ? (
+                                <Minimize2 className="h-4 w-4" />
+                            ) : (
+                                <Maximize2 className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Close canvas</span>
+                    </Button>
+                </div>
             </div>
 
             {/* Tab Content */}

@@ -3,17 +3,32 @@ Tavily Search tool for web search during investigations.
 """
 
 import os
-from typing import Any
+from typing import TypedDict
 
 import httpx
 from google.adk.tools import ToolContext
+
+
+class SearchResult(TypedDict):
+    title: str
+    url: str
+    content: str
+    score: float
+
+
+class SearchResponse(TypedDict):
+    success: bool
+    answer: str
+    results: list[SearchResult]
+    query: str
+    error: str | None
 
 
 def tavily_search_tool(
     query: str,
     tool_context: ToolContext,
     max_results: int = 10,
-) -> dict[str, Any]:
+) -> dict:
     """Search the web using Tavily API for investigation sources.
 
     Args:
@@ -26,7 +41,13 @@ def tavily_search_tool(
     """
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
-        return {"success": False, "error": "TAVILY_API_KEY not configured"}
+        return {
+            "success": False,
+            "error": "TAVILY_API_KEY not configured",
+            "answer": "",
+            "results": [],
+            "query": query,
+        }
 
     api_url = "https://api.tavily.com/search"
 
@@ -49,14 +70,16 @@ def tavily_search_tool(
         result = response.json()
 
         # Extract relevant fields
-        results = []
+        results: list[SearchResult] = []
         for item in result.get("results", []):
-            results.append({
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "content": item.get("content", "")[:500],  # Limit content size
-                "score": item.get("score", 0),
-            })
+            results.append(
+                {
+                    "title": item.get("title", ""),
+                    "url": item.get("url", ""),
+                    "content": item.get("content", "")[:500],  # Limit content size
+                    "score": item.get("score", 0),
+                }
+            )
 
         if debug_mode:
             print(f"✅ Found {len(results)} results")
@@ -66,8 +89,15 @@ def tavily_search_tool(
             "answer": result.get("answer", ""),
             "results": results,
             "query": query,
+            "error": None,
         }
     except Exception as e:
         if debug_mode:
             print(f"❌ TAVILY ERROR: {str(e)}")
-        return {"success": False, "error": str(e), "results": []}
+        return {
+            "success": False,
+            "error": str(e),
+            "results": [],
+            "answer": "",
+            "query": query,
+        }

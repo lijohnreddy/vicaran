@@ -80,3 +80,13 @@ dmypy.json
 
 # UV Python package manager
 uv.lock
+
+# AI docs (internal development templates)
+ai_docs/
+
+# AI tool configs
+.claude/
+.cursor/
+.windsurf/
+.gemini/
+.adk/
