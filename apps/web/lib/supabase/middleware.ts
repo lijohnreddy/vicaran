@@ -1,6 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { env } from "../env";
+
+// Middleware runs on Edge Runtime — use process.env directly
+// (t3-env may not initialize properly in Edge)
+function getSupabaseEnv() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY for middleware");
+  }
+  return { url, anonKey };
+}
 
 export async function updateSession(request: NextRequest) {
   // Skip authentication for webhook endpoints
@@ -28,7 +38,9 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  const supabase = createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+  const { url, anonKey } = getSupabaseEnv();
+
+  const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
