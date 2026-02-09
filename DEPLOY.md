@@ -163,13 +163,13 @@ This deployment guide implements a **deploy-first, configure-after** strategy:
 ### Environment Configuration Strategy  <!-- AI INTERNAL REFERENCE - DO NOT SHOW TO USER -->
 **📋 Production Environment Variables:**
 - **Web App (Vercel Production)**: Current `apps/web/.env.local` keys (becomes production) + update with Vercel URL
-- **ADK Agent Service (Google Cloud Production)**: Production `apps/competitor-analysis-agent/.env.prod` from current `apps/competitor-analysis-agent/.env.local` + EXISTING Google Cloud project + Google Cloud Platform keys + Supabase production + Gemini production
+- **ADK Agent Service (Google Cloud Production)**: Production `apps/vicaran-agent/.env.prod` from current `apps/vicaran-agent/.env.local` + EXISTING Google Cloud project + Google Cloud Platform keys + Supabase production + Gemini production
 - **Supabase**: Current `apps/web/.env.local` keys (becomes production) + update with Vercel URL
 - **Google Cloud**: EXISTING project from setup (used for production deployment)
 
 **📋 Preview & Development Environment Variables:**
 - **Web App (Vercel Preview)**: NEW staging branch keys (separate test database)
-- **ADK Agent Service (Local Development)**: UPDATED staging DATABASE_URL only in `apps/competitor-analysis-agent/.env.local` (rest remains same) + Supabase staging in `apps/web/.env.local` + Gemini development in `apps/web/.env.local`
+- **ADK Agent Service (Local Development)**: UPDATED staging DATABASE_URL only in `apps/vicaran-agent/.env.local` (rest remains same) + Supabase staging in `apps/web/.env.local` + Gemini development in `apps/web/.env.local`
 - **Supabase**: NEW staging branch keys (separate test database)
 - **Google Cloud**: Same development project for local agent testing
 
@@ -505,10 +505,10 @@ Following the ADK Agent Simple deployment process, I'll now prepare and deploy t
 pwd
 
 # Copy the current working ADK agent environment to production
-cp apps/competitor-analysis-agent/.env.local apps/competitor-analysis-agent/.env.prod
+cp apps/vicaran-agent/.env.local apps/vicaran-agent/.env.prod
 
 # Verify the file was created
-ls -la apps/competitor-analysis-agent/.env.prod
+ls -la apps/vicaran-agent/.env.prod
 ```
 
 2. **Set Google Cloud project from environment file**
@@ -517,10 +517,10 @@ ls -la apps/competitor-analysis-agent/.env.prod
 pwd
 
 # Get Google Cloud project ID from the ADK agent production environment
-uv run python scripts/read_env.py apps/competitor-analysis-agent/.env.prod GOOGLE_CLOUD_PROJECT
+uv run python scripts/read_env.py apps/vicaran-agent/.env.prod GOOGLE_CLOUD_PROJECT
 
 # Set the project in gcloud CLI
-gcloud config set project $(uv run python scripts/read_env.py apps/competitor-analysis-agent/.env.local GOOGLE_CLOUD_PROJECT --value-only)
+gcloud config set project $(uv run python scripts/read_env.py apps/vicaran-agent/.env.local GOOGLE_CLOUD_PROJECT --value-only)
 
 # Verify the correct project is selected
 gcloud config get-value project
@@ -1119,14 +1119,14 @@ Following the ADK Agent Simple deployment approach, you only need to update the 
    - Find the `DATABASE_URL` line and **copy the entire value** (starts with `postgresql://postgres:...`)
 
 2. **Update ADK Agent Local Environment with Staging Database**
-   - Open your `apps/competitor-analysis-agent/.env.local` file
+   - Open your `apps/vicaran-agent/.env.local` file
    - Find the `DATABASE_URL` line
    - Replace the existing DATABASE_URL value with the staging DATABASE_URL you copied from step 1
    - **Keep all other variables unchanged** (Google Cloud project, location, etc.)
    - Save the file
 
 3. **Verify ADK Agent Environment is Updated**
-   - The DATABASE_URL in `apps/competitor-analysis-agent/.env.local` should now match the staging branch
+   - The DATABASE_URL in `apps/vicaran-agent/.env.local` should now match the staging branch
    - All other variables (Google Cloud project, location, agent settings) remain unchanged
    - ADK agent is now configured to work with the staging database for local development testing
 

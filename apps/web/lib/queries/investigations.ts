@@ -86,3 +86,20 @@ export async function deleteInvestigation(
 
     return result.length > 0;
 }
+
+/**
+ * Get recent investigations for a user with limit
+ * Used for home page dashboard display
+ */
+export async function getRecentInvestigations(
+    userId: string,
+    limit: number = 5
+): Promise<Investigation[]> {
+    return await db
+        .select()
+        .from(investigations)
+        .where(eq(investigations.user_id, userId))
+        .orderBy(desc(investigations.created_at))
+        .limit(limit);
+}
+

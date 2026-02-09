@@ -23,7 +23,8 @@ import {
   ChevronLeft,
   PanelLeftIcon,
   LogOut,
-  MessageCirclePlus,
+  Home,
+  Plus,
   Shield,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -44,7 +45,7 @@ export default function AppSidebar() {
 
   // Build navigation items based on user role
   const navItems = [
-    { href: "/chat", label: "Chat", icon: MessageCirclePlus },
+    { href: "/home", label: "Home", icon: Home },
     { href: "/history", label: "History", icon: Clock },
     { href: "/profile", label: "Profile", icon: User },
     ...(userRole === "admin"
@@ -82,19 +83,10 @@ export default function AppSidebar() {
     }
   };
 
-  const handleChatClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleNavClick();
-
-    // Force hard navigation to ensure complete state reset
-    // This bypasses React caching and guarantees fresh data
-    window.location.href = "/chat";
-  };
-
   const getLinkClasses = (href: string) => {
     const isActive =
-      href === "/chat"
-        ? pathname.startsWith("/chat")
+      href === "/home"
+        ? pathname.startsWith("/home") || pathname.startsWith("/investigations")
         : href.startsWith("/admin")
           ? pathname.startsWith("/admin")
           : pathname === href;
@@ -151,6 +143,24 @@ export default function AppSidebar() {
         )}
       </SidebarHeader>
       <SidebarContent className="flex-grow p-2 flex flex-col">
+        {/* New Investigation CTA */}
+        <div className={cn(
+          "mb-4",
+          renderContentAsOpen ? "px-2" : "flex justify-center"
+        )}>
+          <Link href="/investigations/new" onClick={handleNavClick}>
+            <Button
+              className={cn(
+                "gap-2",
+                renderContentAsOpen ? "w-full" : "h-9 w-9 p-0"
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              {renderContentAsOpen && "New Investigation"}
+            </Button>
+          </Link>
+        </div>
+
         <SidebarGroup>
           <SidebarMenu className="space-y-1">
             {navItems.map((item) => (
@@ -164,9 +174,7 @@ export default function AppSidebar() {
                 <Link
                   href={item.href}
                   className={getLinkClasses(item.href)}
-                  onClick={
-                    item.href === "/chat" ? handleChatClick : handleNavClick
-                  }
+                  onClick={handleNavClick}
                 >
                   <item.icon
                     className={cn(

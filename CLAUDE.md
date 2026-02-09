@@ -15,7 +15,7 @@ This is a Google Agent Development Kit (ADK) SaaS template featuring:
 - Authentication: Supabase Auth
 - Chat Interface: Real-time streaming with agent progress tracking
 
-## Backend (apps/competitor-analysis-agent)
+## Backend (apps/vicaran-agent)
 - Framework: Google Agent Development Kit (ADK)
 - Language: Python 3.10+ with uv package management
 - Agent Types: LlmAgent, SequentialAgent, ParallelAgent, LoopAgent
@@ -40,7 +40,7 @@ npm run build        # Build for production
 npm run type-check   # Type checking
 
 # ADK agent system
-cd apps/competitor-analysis-agent
+cd apps/vicaran-agent
 uv run app.py        # Start agent server
 uv run python -m competitor_analysis_agent  # Alternative execution
 ```
@@ -63,7 +63,7 @@ uv run python -m competitor_analysis_agent  # Alternative execution
 
 # Project Structure
 - `apps/web/` - Next.js frontend with real-time chat interface
-- `apps/competitor-analysis-agent/` - ADK agent system with multi-agent workflow
+- `apps/vicaran-agent/` - ADK agent system with multi-agent workflow
   - `agent.py` - Root agent (orchestrator)
   - `sub_agents/` - Specialized agents for different tasks
   - `agent_engine_app.py` - ADK application runner

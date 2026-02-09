@@ -17,7 +17,8 @@ abstract class AbstractRequestHandler implements RequestHandler {
   async handleRequest(
     sessionId: string,
     userMessage: string,
-    userId: string
+    userId: string,
+    investigationId: string | null
   ): Promise<ProcessingResult> {
     // Validate environment using shared logic
     const envResult = this.validateEnvironment(sessionId);
@@ -27,12 +28,12 @@ abstract class AbstractRequestHandler implements RequestHandler {
 
     this.logProcessingStart(sessionId);
 
-    // Create handler-specific payload (implemented by subclasses)
     const payload = await this.createPayload(
       sessionId,
       userMessage,
       userId,
-      envResult.url
+      envResult.url,
+      investigationId
     );
 
     // Execute request using shared logic
@@ -43,7 +44,8 @@ abstract class AbstractRequestHandler implements RequestHandler {
     sessionId: string,
     userMessage: string,
     userId: string,
-    adkUrl: string
+    adkUrl: string,
+    investigationId: string | null
   ): Promise<RequestPayload>;
 
   /**
@@ -67,52 +69,86 @@ abstract class AbstractRequestHandler implements RequestHandler {
 
   /**
    * Shared request execution logic (eliminates code duplication)
+   * Includes retry logic for 409 Conflict responses (session locked)
    */
   private async executeRequest(
     payload: RequestPayload,
-    sessionId: string
+    sessionId: string,
+    maxRetries: number = 3,
+    retryDelayMs: number = 2000
   ): Promise<ProcessingResult> {
-    try {
-      console.log(
-        `📤 [${this.getLogPrefix()}] Sending request to:`,
-        payload.endpoint
-      );
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `📤 [${this.getLogPrefix()}] Sending request to:`,
+          payload.endpoint,
+          attempt > 1 ? `(attempt ${attempt}/${maxRetries})` : ''
+        );
 
-      const response = await fetch(payload.endpoint, {
-        method: "POST",
-        headers: payload.headers,
-        body: JSON.stringify(payload.body),
-      });
+        const response = await fetch(payload.endpoint, {
+          method: "POST",
+          headers: payload.headers,
+          body: JSON.stringify(payload.body),
+        });
 
-      console.log(
-        `📥 [${this.getLogPrefix()}] Response status:`,
-        response.status
-      );
-
-      if (!response.ok) {
-        const errorMessage = `${this.getHandlerName()} request failed: ${
+        console.log(
+          `📥 [${this.getLogPrefix()}] Response status:`,
           response.status
-        } ${response.statusText}`;
-        console.error(`❌ [${this.getLogPrefix()}]`, errorMessage);
+        );
+
+        // Handle 409 Conflict - session is locked, retry after delay
+        if (response.status === 409) {
+          console.warn(
+            `⚠️ [${this.getLogPrefix()}] Session locked (409 Conflict). Attempt ${attempt}/${maxRetries}`
+          );
+
+          if (attempt < maxRetries) {
+            console.log(`⏳ [${this.getLogPrefix()}] Waiting ${retryDelayMs}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+            continue; // Retry
+          }
+
+          // All retries exhausted
+          const errorMessage = `Session is currently locked. Please wait and try again.`;
+          console.error(`❌ [${this.getLogPrefix()}]`, errorMessage);
+          return {
+            success: false,
+            sessionId,
+            error: errorMessage,
+          };
+        }
+
+        if (!response.ok) {
+          const errorMessage = `${this.getHandlerName()} request failed: ${response.status
+            } ${response.statusText}`;
+          console.error(`❌ [${this.getLogPrefix()}]`, errorMessage);
+          return {
+            success: false,
+            sessionId,
+            error: errorMessage,
+          };
+        }
+
+        console.log(`✅ [${this.getLogPrefix()}] Request completed successfully`);
+        return { success: true, sessionId };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown network error";
+        console.error(`❌ [${this.getLogPrefix()}] Network error:`, errorMessage);
         return {
           success: false,
           sessionId,
-          error: errorMessage,
+          error: `${this.getHandlerName()} network error: ${errorMessage}`,
         };
       }
-
-      console.log(`✅ [${this.getLogPrefix()}] Request completed successfully`);
-      return { success: true, sessionId };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown network error";
-      console.error(`❌ [${this.getLogPrefix()}] Network error:`, errorMessage);
-      return {
-        success: false,
-        sessionId,
-        error: `${this.getHandlerName()} network error: ${errorMessage}`,
-      };
     }
+
+    // Should not reach here, but just in case
+    return {
+      success: false,
+      sessionId,
+      error: "Unexpected retry loop exit",
+    };
   }
 
   /**
@@ -141,24 +177,34 @@ class LocalhostHandler extends AbstractRequestHandler {
 
   /**
    * Create ADK format payload for localhost server
+   * Uses ADK Web CLI endpoint format: /apps/{app}/users/{user}/sessions/{session}:run
    */
   protected async createPayload(
     sessionId: string,
     userMessage: string,
     userId: string,
-    adkUrl: string
+    adkUrl: string,
+    investigationId: string | null
   ): Promise<RequestPayload> {
     const headers = await getAuthHeaders();
 
+    // ADK Web CLI uses /run endpoint with session info in body
+    const endpoint = `${adkUrl}/run`;
+
+    // Format message with investigation context so agent can extract the ID
+    const formattedMessage = investigationId
+      ? `Investigation ID: ${investigationId}\n\n${userMessage}`
+      : userMessage;
+
     return {
-      endpoint: `${adkUrl}/run`,
+      endpoint,
       body: {
-        app_name: "competitor_analysis_agent",
+        app_name: "vicaran_agent",
         user_id: userId,
         session_id: sessionId,
         new_message: {
           role: "user",
-          parts: [{ text: userMessage }],
+          parts: [{ text: formattedMessage }],
         },
         streaming: false,
       },
@@ -187,9 +233,15 @@ class AgentEngineHandler extends AbstractRequestHandler {
     sessionId: string,
     userMessage: string,
     userId: string,
-    adkUrl: string
+    adkUrl: string,
+    investigationId: string | null
   ): Promise<RequestPayload> {
     const headers = await getAuthHeaders();
+
+    // Format message with investigation context
+    const formattedMessage = investigationId
+      ? `Investigation ID: ${investigationId}\n\n${userMessage}`
+      : userMessage;
 
     return {
       endpoint: adkUrl.replace(":query", ":streamQuery"),
@@ -197,7 +249,7 @@ class AgentEngineHandler extends AbstractRequestHandler {
         input: {
           user_id: userId,
           session_id: sessionId,
-          message: userMessage,
+          message: formattedMessage,
         },
       },
       headers,
@@ -218,16 +270,18 @@ export class UnifiedRequestHandler {
   async processAgentRequest(
     sessionId: string,
     userMessage: string,
-    userId: string
+    userId: string,
+    investigationId: string | null = null
   ): Promise<ProcessingResult> {
     console.log("🔄 [UNIFIED_HANDLER] Processing agent request:", {
       sessionId,
       messagePreview: userMessage.substring(0, 50) + "...",
       userId,
+      investigationId,
     });
 
     const handler = this.createHandler();
-    const result = await handler.handleRequest(sessionId, userMessage, userId);
+    const result = await handler.handleRequest(sessionId, userMessage, userId, investigationId);
 
     if (result.success) {
       console.log("✅ [UNIFIED_HANDLER] Agent request completed successfully");

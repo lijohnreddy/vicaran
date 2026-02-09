@@ -9,6 +9,7 @@ import { Message } from "@/lib/chat/types";
 
 interface UseChatMessageFlowConfig {
   session: AdkSession | null;
+  investigationId?: string | null;
   addMessage: (message: Message) => void;
   startPolling: () => void;
   isWaitingForAgent: boolean;
@@ -37,6 +38,7 @@ interface UseChatMessageFlowReturn {
  */
 export function useChatMessageFlow({
   session,
+  investigationId,
   addMessage,
   startPolling,
   isWaitingForAgent,
@@ -70,7 +72,8 @@ export function useChatMessageFlow({
         // Use Server Action for session creation and message processing
         const result = await createSessionWithMessage(
           session?.id || null,
-          messageText
+          messageText,
+          investigationId
         );
 
         if (!result.success) {
@@ -134,7 +137,7 @@ export function useChatMessageFlow({
         setIsLoading(false);
       }
     },
-    [session, router, startPolling, addMessage]
+    [session, investigationId, router, startPolling, addMessage]
   );
 
   // Handle prompt selection from welcome card

@@ -63,6 +63,33 @@ def callback_api_tool(
         if config.debug_mode:
             print(f"✅ RESPONSE: {result}")
 
+        # Accumulate data to session state for downstream agents
+        if callback_type == "SOURCE_FOUND" and result.get("source_id"):
+            sources_list = tool_context.state.get("sources_accumulated", [])
+            sources_list.append({
+                "source_id": result["source_id"],
+                "title": data.get("title", ""),
+                "url": data.get("url", ""),
+                "credibility_score": data.get("credibility_score", 0),
+                "key_claims": data.get("key_claims", []),
+                "summary": data.get("summary", ""),
+            })
+            tool_context.state["sources_accumulated"] = sources_list
+            if config.debug_mode:
+                print(f"📊 Accumulated {len(sources_list)} sources in session state")
+
+        elif callback_type == "CLAIM_EXTRACTED" and result.get("claim_id"):
+            claims_list = tool_context.state.get("claims_accumulated", [])
+            claims_list.append({
+                "claim_id": result["claim_id"],
+                "claim_text": data.get("claim_text", ""),
+                "source_ids": data.get("source_ids", []),
+                "importance_score": data.get("importance_score", 0),
+            })
+            tool_context.state["claims_accumulated"] = claims_list
+            if config.debug_mode:
+                print(f"📊 Accumulated {len(claims_list)} claims in session state")
+
         # API returns created IDs: source_id, claim_id, fact_check_id, event_id
         return {"success": True, **result}
     except httpx.HTTPStatusError as e:

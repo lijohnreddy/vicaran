@@ -64,9 +64,14 @@ const timelineEventSchema = z.object({
     type: z.literal("TIMELINE_EVENT"),
     investigation_id: z.string().uuid(),
     data: z.object({
-        event_date: z.string().datetime(), // ISO 8601 format
+        // Accept date-only (2024-12-31) or full datetime (2024-12-31T00:00:00Z)
+        event_date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+            message: "Invalid date format",
+        }),
         event_text: z.string(),
+        // Accept both singular source_id or source_ids array (agent sends array)
         source_id: z.string().uuid().optional(),
+        source_ids: z.array(z.string().uuid()).optional(),
     }),
 });
 
@@ -229,7 +234,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                         })
                         .returning();
 
-                    // Update claim evidence count
+                    // Get existing claim to update
                     const [existingClaim] = await db
                         .select()
                         .from(claims)
@@ -237,10 +242,28 @@ export async function POST(request: NextRequest): Promise<Response> {
                         .limit(1);
 
                     if (existingClaim) {
+                        // Determine new claim status based on evidence
+                        // Rule: Any contradicting evidence → "contradicted"
+                        //       Otherwise if we have supporting → "verified"
+                        let newStatus = existingClaim.status;
+
+                        if (payload.data.evidence_type === "contradicting") {
+                            // Contradicting evidence always sets status to contradicted
+                            newStatus = "contradicted";
+                        } else if (
+                            payload.data.evidence_type === "supporting" &&
+                            existingClaim.status === "unverified"
+                        ) {
+                            // Supporting evidence promotes from unverified to verified
+                            // (but doesn't override if already contradicted)
+                            newStatus = "verified";
+                        }
+
                         await db
                             .update(claims)
                             .set({
                                 evidence_count: existingClaim.evidence_count + 1,
+                                status: newStatus,
                                 updated_at: new Date(),
                             })
                             .where(eq(claims.id, payload.data.claim_id));
@@ -282,13 +305,16 @@ export async function POST(request: NextRequest): Promise<Response> {
                 const payload = timelineEventSchema.parse(body);
 
                 try {
+                    // Use source_id or first element from source_ids array
+                    const sourceId = payload.data.source_id || payload.data.source_ids?.[0];
+
                     const [event] = await db
                         .insert(timelineEvents)
                         .values({
                             investigation_id: payload.investigation_id,
                             event_date: new Date(payload.data.event_date),
                             event_text: payload.data.event_text,
-                            source_id: payload.data.source_id,
+                            source_id: sourceId,
                         })
                         .returning();
 

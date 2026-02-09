@@ -16,7 +16,7 @@ You will guide users through 6 phases:
 2. **Supabase Backend Setup** - Database and authentication (configures `apps/web/`)
 3. **Web Application Setup** - Next.js app with chat interface (configures `apps/web/`)
 4. **Google Cloud Platform & Vertex AI Setup** - GCP project, Vertex AI APIs, authentication, and Gemini API (configures both apps)
-5. **Competitor Analysis Agent Setup** - Python agent configuration (configures `apps/competitor-analysis-agent/`)
+5. **Competitor Analysis Agent Setup** - Python agent configuration (configures `apps/vicaran-agent/`)
 6. **Integration & Production Testing** - End-to-end verification
 
 ### Communication Format
@@ -72,8 +72,8 @@ Ready to begin? Let's start with the first step...
 
 ### Polyglot Architecture Awareness
 
-- **TWO SEPARATE APPLICATIONS**: Next.js Frontend (`apps/web/`) + Python Agent Service (`apps/competitor-analysis-agent/`)
-- **TWO .env.local files** to configure: `apps/web/.env.local` and `apps/competitor-analysis-agent/.env.local`
+- **TWO SEPARATE APPLICATIONS**: Next.js Frontend (`apps/web/`) + Python Agent Service (`apps/vicaran-agent/`)
+- **TWO .env.local files** to configure: `apps/web/.env.local` and `apps/vicaran-agent/.env.local`
 - **Multiple platforms** to configure: Supabase, Google Cloud Platform with Vertex AI
 
 ### Success Criteria
@@ -94,12 +94,12 @@ This is a **complete fullstack Agent application** with **cloud-native architect
 📁 apps/
   ├── 📁 web/                           ← Next.js Frontend (dev: local, prod: deployed)
   │   └── .env.local                    ← Environment file to be created
-  └── 📁 competitor-analysis-agent/     ← Python Agent Service (ADK-powered)
+  └── 📁 vicaran-agent/     ← Python Agent Service (ADK-powered)
       └── .env.local                    ← Environment file to be created
 ```
 
 - **🌐 `apps/web/`** - Next.js frontend with Supabase authentication
-- **🤖 `apps/competitor-analysis-agent/`** - Python agent using Google's ADK for intelligent competitor analysis
+- **🤖 `apps/vicaran-agent/`** - Python agent using Google's ADK for intelligent competitor analysis
 
 **⚠️ IMPORTANT:** This is a **complete Agent application**. You'll set up both frontend and the intelligent agent backend to create a production-ready competitive analysis platform.
 
@@ -129,7 +129,7 @@ This is a **complete fullstack Agent application** with **cloud-native architect
 **⚠️ CRITICAL UNDERSTANDING:** You manage **TWO .env.local files**:
 
 - **`apps/web/.env.local`** - For the Next.js frontend (authentication, chat interface)
-- **`apps/competitor-analysis-agent/.env.local`** - For the Python agent (Google Cloud configuration, ADK settings)
+- **`apps/vicaran-agent/.env.local`** - For the Python agent (Google Cloud configuration, ADK settings)
 
 **🛑 Stop and Wait Points:**
 
@@ -251,10 +251,10 @@ You will be guided through **6 phases** in this exact order:
 2. **Phase 2: Supabase Backend Setup** - Database and authentication (configures `apps/web/`)
 3. **Phase 3: Web Application Testing** - Verify Next.js app and authentication flow
 4. **Phase 4: Google Cloud Platform & Vertex AI Setup** - GCP project, Vertex AI APIs, authentication, and Gemini API (configures both apps)
-5. **Phase 5: Competitor Analysis Agent Setup** - Python agent configuration (configures `apps/competitor-analysis-agent/`)
+5. **Phase 5: Competitor Analysis Agent Setup** - Python agent configuration (configures `apps/vicaran-agent/`)
 6. **Phase 6: Integration & Production Testing** - End-to-end verification
 
-**🔄 Configuration Flow:** Throughout the setup, you'll configure environment variables in both the web app (`apps/web/.env.local`) and the Python agent (`apps/competitor-analysis-agent/.env.local`). The competitor analysis agent communicates with the web app through API endpoints for seamless integration.
+**🔄 Configuration Flow:** Throughout the setup, you'll configure environment variables in both the web app (`apps/web/.env.local`) and the Python agent (`apps/vicaran-agent/.env.local`). The competitor analysis agent communicates with the web app through API endpoints for seamless integration.
 
 ### Success Verification
 
@@ -525,18 +525,18 @@ Before setting up Supabase, I'll create the environment files for both applicati
 ```bash
 # Create environment files for both applications
 cp apps/web/.env.local.example apps/web/.env.local
-cp apps/competitor-analysis-agent/.env.local.example apps/competitor-analysis-agent/.env.local
+cp apps/vicaran-agent/.env.local.example apps/vicaran-agent/.env.local
 
 # Verify files were created successfully
 echo "✅ Checking environment files:"
 ls -la apps/web/.env.local
-ls -la apps/competitor-analysis-agent/.env.local
+ls -la apps/vicaran-agent/.env.local
 ```
 
 **✅ Checkpoint:** Environment files are now ready:
 
 - `apps/web/.env.local` - For the Next.js frontend
-- `apps/competitor-analysis-agent/.env.local` - For the Python competitor analysis agent
+- `apps/vicaran-agent/.env.local` - For the Python competitor analysis agent
 
 ### Step 2.2: Create Supabase Account and Project
 
@@ -646,7 +646,7 @@ SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 DATABASE_URL="your-database-url"
 ```
 
-- **In your competitor analysis agent's `apps/competitor-analysis-agent/.env.local` file, update the DATABASE_URL:**
+- **In your competitor analysis agent's `apps/vicaran-agent/.env.local` file, update the DATABASE_URL:**
 
 ```bash
 DATABASE_URL="your-database-url"
@@ -1133,7 +1133,7 @@ Organization: [your organization or leave default]
 
 4. **📝 IMPORTANT: Note your Project ID**
    - Copy the exact **Project ID** (not the display name)
-   - **Immediately update Agent environment file (`apps/competitor-analysis-agent/.env.local`)**
+   - **Immediately update Agent environment file (`apps/vicaran-agent/.env.local`)**
 
 ```bash
 GOOGLE_CLOUD_PROJECT=your-actual-project-id
@@ -1205,10 +1205,10 @@ gcloud auth application-default login
 
 ```bash
 # Get project ID from environment file
-uv run python scripts/read_env.py apps/competitor-analysis-agent/.env.local GOOGLE_CLOUD_PROJECT
+uv run python scripts/read_env.py apps/vicaran-agent/.env.local GOOGLE_CLOUD_PROJECT
 
 # Set the project (AI will extract the project ID from the environment file)
-gcloud config set project $(uv run python scripts/read_env.py apps/competitor-analysis-agent/.env.local GOOGLE_CLOUD_PROJECT --value-only)
+gcloud config set project $(uv run python scripts/read_env.py apps/vicaran-agent/.env.local GOOGLE_CLOUD_PROJECT --value-only)
 ```
 
 3. **Verify setup:**
@@ -1302,14 +1302,14 @@ I'll verify that the competitor analysis agent environment is properly configure
 
 ```bash
 # Make sure the agent environment file exists
-ls -la apps/competitor-analysis-agent/.env.local
+ls -la apps/vicaran-agent/.env.local
 
 # Check if the agent environment file has basic configuration
-uv run python scripts/read_env.py apps/competitor-analysis-agent/.env.local GOOGLE_CLOUD_PROJECT
-uv run python scripts/read_env.py apps/competitor-analysis-agent/.env.local GOOGLE_CLOUD_LOCATION
+uv run python scripts/read_env.py apps/vicaran-agent/.env.local GOOGLE_CLOUD_PROJECT
+uv run python scripts/read_env.py apps/vicaran-agent/.env.local GOOGLE_CLOUD_LOCATION
 ```
 
-**Expected Configuration in `apps/competitor-analysis-agent/.env.local`:**
+**Expected Configuration in `apps/vicaran-agent/.env.local`:**
 
 - ✅ `GOOGLE_CLOUD_PROJECT=your-project-id`
 - ✅ `GOOGLE_CLOUD_LOCATION=us-central1`
@@ -1377,7 +1377,7 @@ ADK_URL="http://localhost:8000"
 GOOGLE_SERVICE_ACCOUNT_KEY_BASE64="UPDATE_ME"
 ```
 
-#### 🐍 **`apps/competitor-analysis-agent/.env.local` Environment File**
+#### 🐍 **`apps/vicaran-agent/.env.local` Environment File**
 
 ```bash
 # Competitor Analysis Agent Environment Variables

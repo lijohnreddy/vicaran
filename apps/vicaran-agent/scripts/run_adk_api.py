@@ -4,9 +4,25 @@ Platform-agnostic script to run ADK API server with .env.local configuration.
 """
 
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
+
+
+def check_port_available(host: str, port: int) -> bool:
+    """
+    Check if a port is available for binding.
+    
+    Returns True if port is available, False if already in use.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind((host, port))
+        sock.close()
+        return True
+    except OSError:
+        return False
 
 
 def load_env_file(env_file: Path) -> dict[str, str]:
@@ -47,6 +63,23 @@ def load_env_file(env_file: Path) -> dict[str, str]:
 
 def main() -> None:
     """Main function to run ADK API server."""
+    # Default port
+    port = 8000
+    host = "127.0.0.1"
+    
+    # Check if port is available before trying to start
+    if not check_port_available(host, port):
+        print(f"❌ Error: Port {port} is already in use!")
+        print("")
+        print("Another process is using this port. To find and kill it:")
+        print(f"  Windows: netstat -ano | findstr :{port}")
+        print(f"           taskkill /PID <PID> /F")
+        print(f"  Linux/Mac: lsof -i :{port}")
+        print(f"             kill -9 <PID>")
+        print("")
+        print("Then try running the ADK server again.")
+        sys.exit(1)
+    
     script_dir = Path(__file__).parent.parent  # Go up to competitor-analysis-agent/
     env_file = script_dir / ".env.local"
 
@@ -63,11 +96,13 @@ def main() -> None:
     env = os.environ.copy()
     env.update(env_vars)
 
-    # Build command
+    # Build command - use python module path to avoid Windows path canonicalization issues
     cmd = [
         "uv",
         "run",
-        "adk",
+        "python",
+        "-m",
+        "google.adk.cli",
         "api_server",
         f"--session_service_uri={database_url}",
         "--port=8000",

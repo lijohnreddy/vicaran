@@ -44,11 +44,13 @@ const ChatStateContext = createContext<ChatStateContextType | undefined>(
 
 interface ChatStateProviderProps {
   session: (AdkSession & { events: AdkEvent[] }) | null;
+  investigationId?: string | null;
   children: ReactNode;
 }
 
 export function ChatStateProvider({
   session,
+  investigationId,
   children,
 }: ChatStateProviderProps) {
   const user = useUser();
@@ -63,6 +65,7 @@ export function ChatStateProvider({
   // Single consolidated hook for message flow (replaces submission + form)
   const messageFlow = useChatMessageFlow({
     session,
+    investigationId,
     addMessage: messages.addMessage,
     startPolling: polling.startPolling,
     isWaitingForAgent: messages.isWaitingForAgent,
@@ -138,20 +141,22 @@ export function useChatState(): ChatStateContextType {
   if (context === undefined) {
     throw new Error(
       "useChatState must be used within a ChatStateProvider. " +
-        "Wrap your component tree with <ChatStateProvider> to provide chat state context."
+      "Wrap your component tree with <ChatStateProvider> to provide chat state context."
     );
   }
   return context;
 }
 
-// Enhanced ChatStateProvider with Error Boundary
 export function ChatStateProviderWithBoundary({
   session,
+  investigationId,
   children,
 }: ChatStateProviderProps) {
   return (
     <ChatErrorBoundary>
-      <ChatStateProvider session={session}>{children}</ChatStateProvider>
+      <ChatStateProvider session={session} investigationId={investigationId}>
+        {children}
+      </ChatStateProvider>
     </ChatErrorBoundary>
   );
 }

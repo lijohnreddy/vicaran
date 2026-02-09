@@ -26,7 +26,8 @@ dependencies = [
     "pandas>=2.1.0",
     "numpy>=1.25.0",
     # Database connectivity for session service
-    "psycopg2-binary>=2.9.0", # PostgreSQL adapter
+    "psycopg2-binary>=2.9.0", # PostgreSQL adapter (sync)
+    "asyncpg>=0.29.0", # PostgreSQL adapter (async) - required for ADK DatabaseSessionService
     "sqlalchemy>=2.0.0", # Database ORM for session management
     # FastAPI server dependencies
     "fastapi>=0.104.0",

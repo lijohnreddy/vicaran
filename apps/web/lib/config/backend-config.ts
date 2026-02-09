@@ -31,11 +31,11 @@ function getAdkAppName(): string {
     console.warn(
       "Could not extract Agent Engine ID from URL, using default app name"
     );
-    return "competitor_analysis_agent";
+    return "vicaran_agent";
   }
 
   // For localhost, use the configured agent name
-  return "competitor_analysis_agent";
+  return "vicaran_agent";
 }
 
 export const ADK_APP_NAME = getAdkAppName();

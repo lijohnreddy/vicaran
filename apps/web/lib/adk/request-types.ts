@@ -21,7 +21,8 @@ export interface RequestHandler {
   handleRequest(
     sessionId: string,
     userMessage: string,
-    userId: string
+    userId: string,
+    investigationId: string | null
   ): Promise<ProcessingResult>;
 }
 

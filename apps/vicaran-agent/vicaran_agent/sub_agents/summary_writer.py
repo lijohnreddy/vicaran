@@ -9,7 +9,7 @@ from ..prompts import SUMMARY_WRITER_INSTRUCTION
 
 summary_writer = LlmAgent(
     name="summary_writer",
-    model="gemini-2.5-pro",  # Using Pro model for high-quality writing
+    model="gemini-2.5-flash",
     instruction=SUMMARY_WRITER_INSTRUCTION,
     # No tools needed - callback handles persistence
     after_agent_callback=save_final_summary,

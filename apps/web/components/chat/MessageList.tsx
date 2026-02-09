@@ -78,8 +78,10 @@ export function MessageList({ className }: MessageListProps) {
  * Individual message bubble component with all formatting and styling
  */
 function MessageBubble({ message }: { message: Message }) {
+
   return (
     <Card
+      suppressHydrationWarning
       className={cn(
         "p-3 sm:p-4 group",
         message.type === "user"
@@ -102,6 +104,7 @@ function MessageBubble({ message }: { message: Message }) {
         </div>
       )}
 
+
       {/* Message Footer with Timestamp and Copy Button */}
       <MessageFooter message={message} />
     </Card>
@@ -113,8 +116,8 @@ function MessageBubble({ message }: { message: Message }) {
  */
 function AgentHeader({ message }: { message: Message }) {
   return (
-    <div className="mb-3 sm:mb-4">
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="mb-3 sm:mb-4" suppressHydrationWarning>
+      <div className="flex items-center gap-2 flex-wrap" suppressHydrationWarning>
         <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-chat-assistant-fg" />
         <h4 className="text-sm sm:text-base font-semibold text-chat-assistant-fg">
           {message.agent ? getAgentTitle(message.agent) : "Agent Activity"}
@@ -146,7 +149,7 @@ function MessageFooter({ message }: { message: Message }) {
           : "text-secondary-foreground"
       )}
     >
-      <span>
+      <span suppressHydrationWarning>
         {message.timestamp.toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",

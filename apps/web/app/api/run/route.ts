@@ -41,7 +41,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Step 4: Build agent request
     const agentRequest: ADKAgentRequest = {
-      app_name: "competitor_analysis_agent",
+      app_name: "vicaran_agent",
       user_id: requestUserId,
       session_id: sessionId,
       new_message: {

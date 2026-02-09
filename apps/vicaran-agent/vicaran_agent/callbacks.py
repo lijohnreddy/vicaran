@@ -60,29 +60,86 @@ def normalize_url(url: str) -> str:
 def initialize_investigation_state(callback_context: CallbackContext) -> None:
     """Initialize all required state keys for the investigation workflow.
 
-    Extracts investigation_id and mode from the user prompt.
+    Extracts investigation_id and mode from user messages in session events.
     Called as before_agent_callback on the orchestrator.
     """
-    session_state = callback_context._invocation_context.session.state
-    user_prompt = session_state.get("user_prompt", "")
+    session = callback_context._invocation_context.session
+    session_state = session.state
+    
+    # Extract user messages from session events (ADK stores messages here, not in user_prompt)
+    user_prompt = ""
+    for event in reversed(session.events or []):
+        # Look for user role in event content
+        if hasattr(event, 'content') and event.content:
+            if hasattr(event.content, 'role') and event.content.role == 'user':
+                # Extract text from parts
+                if hasattr(event.content, 'parts'):
+                    for part in event.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            user_prompt = part.text
+                            break
+        if user_prompt:
+            break
+    
+    # Fallback to state-based user_prompt if events don't have it
+    if not user_prompt:
+        user_prompt = session_state.get("user_prompt", "")
+    
+    # Also check investigation_brief from initial state
+    investigation_brief = session_state.get("investigation_brief", "")
+
+    if config.debug_mode:
+        print(f"\n🔍 DEBUG: Extracting investigation ID")
+        print(f"   user_prompt (from events): '{user_prompt[:100]}...'")
+        print(f"   investigation_brief (from state): '{investigation_brief[:100] if investigation_brief else 'None'}...'")
 
     # Extract investigation_id from prompt (format: "Investigation ID: uuid")
     id_match = re.search(r"Investigation ID:\s*([a-f0-9-]+)", user_prompt, re.IGNORECASE)
     if id_match:
         session_state["investigation_id"] = id_match.group(1)
-    else:
-        # Generate mock ID for ADK Web testing (no frontend)
-        mock_id = str(uuid.uuid4())
-        session_state["investigation_id"] = mock_id
         if config.debug_mode:
-            print(f"\u26a0\ufe0f No investigation_id in prompt, generated mock: {mock_id}")
+            print(f"   ✅ Extracted investigation_id: {id_match.group(1)}")
+    else:
+        # No mock ID - log error and use empty ID (callbacks will skip)
+        print("❌ ERROR: No investigation_id found in user message. Callbacks will be skipped.")
+        if config.debug_mode:
+            print(f"   user_prompt was: '{user_prompt[:200]}...'")
+        session_state["investigation_id"] = ""
 
-    # Extract mode from prompt
-    mode = "quick" if "quick" in user_prompt.lower() else "detailed"
+    # Extract mode from prompt or state
+    mode = session_state.get("investigation_mode", "quick")
+    if "detailed" in user_prompt.lower():
+        mode = "detailed"
+
+    # Extract title from prompt (format: "Title: XYZ")
+    title_match = re.search(r"Title:\s*(.+?)(?:\n|$)", user_prompt)
+    title = title_match.group(1).strip() if title_match else ""
+
+    # Extract brief from prompt (format: "**Investigation Brief:**\nXYZ")
+    brief_match = re.search(
+        r"\*\*Investigation Brief:\*\*\s*(.+?)(?:\n\n|$)", user_prompt, re.DOTALL
+    )
+    brief = brief_match.group(1).strip() if brief_match else ""
+
+    # Fallback to existing session state (set during ADK session creation)
+    if not brief:
+        brief = session_state.get("investigation_brief", "")
+    if not title:
+        title = brief[:50] if brief else "Untitled Investigation"
+
+    investigation_id = session_state.get("investigation_id", "")
 
     # Initialize with mode-specific defaults
     session_state["investigation_mode"] = mode
-    session_state["investigation_config"] = {}
+    session_state["investigation_config"] = {
+        "investigation_id": investigation_id,
+        "mode": mode,
+        "title": title,
+        "brief": brief,
+        "skip_timeline": mode == "quick",
+        "source_limit": 15 if mode == "quick" else 30,
+        "bias_level": "overall" if mode == "quick" else "per_source",
+    }
     session_state["user_sources"] = []
     session_state["investigation_plan"] = ""
     session_state["discovered_sources"] = ""
@@ -93,11 +150,16 @@ def initialize_investigation_state(callback_context: CallbackContext) -> None:
     session_state["investigation_summary"] = ""
     session_state["source_id_map"] = []
     session_state["claim_id_map"] = []
+    # Accumulated structured data for downstream agents
+    session_state["sources_accumulated"] = []
+    session_state["claims_accumulated"] = []
 
     if config.debug_mode:
         print(f"\n\U0001f680 INVESTIGATION INITIALIZED")
         print(f"\U0001f194 ID: {session_state.get('investigation_id', 'Not found')}")
         print(f"\U0001f4cb Mode: {mode}")
+        print(f"\U0001f4dd Title: {title}")
+        print(f"\U0001f4c4 Brief: {brief[:100]}..." if len(brief) > 100 else f"\U0001f4c4 Brief: {brief}")
 
 
 # =============================================================================
@@ -216,8 +278,20 @@ def save_final_summary(callback_context: CallbackContext) -> None:
     if "[INVESTIGATION_COMPLETE]" not in investigation_summary:
         return  # Not complete yet
 
+    # Extract overall bias score from summary (format: "Overall bias score: X.XX/10")
+    overall_bias_score = None
+    bias_match = re.search(r"Overall bias score:\s*([\d.]+)/10", investigation_summary, re.IGNORECASE)
+    if bias_match:
+        try:
+            # Convert from 0-10 scale to 0-5 scale (as expected by API schema)
+            score_10 = float(bias_match.group(1))
+            overall_bias_score = score_10 / 2  # Convert 0-10 to 0-5 scale
+        except ValueError:
+            pass
+
     if config.debug_mode:
-        print(f"\n\U0001f389 INVESTIGATION COMPLETE: Saving summary")
+        print(f"\n🎉 INVESTIGATION COMPLETE: Saving summary")
+        print(f"   📊 Extracted bias score: {overall_bias_score} (0-5 scale)")
 
     # Make direct HTTP call (same pattern as pipeline_started_callback)
     import httpx
@@ -230,6 +304,7 @@ def save_final_summary(callback_context: CallbackContext) -> None:
         "investigation_id": investigation_id,
         "data": {
             "summary": investigation_summary,
+            "overall_bias_score": overall_bias_score,
         },
     }
 
