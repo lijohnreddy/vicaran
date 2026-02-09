@@ -1,6 +1,9 @@
 /**
  * Backend Configuration for ADK Agent Communication
  * Simplified configuration using ADK_URL for both localhost and production
+ * 
+ * All config values are lazy — computed on first access to avoid
+ * crashing during Vercel's build when env vars aren't available.
  */
 
 import { env } from "@/lib/env";
@@ -17,52 +20,50 @@ export interface BackendConfig {
  * For localhost, use the configured agent name.
  */
 function getAdkAppName(): string {
-  const adkUrl = env.ADK_URL;
+  const adkUrl = env.ADK_URL ?? "";
 
   // Check if this is an Agent Engine deployment
   if (adkUrl.includes("aiplatform.googleapis.com")) {
-    // Extract Agent Engine ID from the URL
-    // Format: https://us-central1-aiplatform.googleapis.com/v1/projects/PROJECT/locations/LOCATION/reasoningEngines/ID:query
     const match = adkUrl.match(/reasoningEngines\/(\d+):/);
     if (match && match[1]) {
-      return match[1]; // Return the Agent Engine resource ID
+      return match[1];
     }
-    // Fallback to default if extraction fails
     console.warn(
       "Could not extract Agent Engine ID from URL, using default app name"
     );
     return "vicaran_agent";
   }
 
-  // For localhost, use the configured agent name
   return "vicaran_agent";
 }
 
-export const ADK_APP_NAME = getAdkAppName();
+// Lazy — only computed when accessed at runtime
+let _adkAppName: string | null = null;
+export function getADKAppName(): string {
+  if (!_adkAppName) _adkAppName = getAdkAppName();
+  return _adkAppName;
+}
+
 
 /**
  * Detects deployment type from ADK_URL
  */
 function detectDeploymentType(): BackendConfig["deploymentType"] {
-  const adkUrl = env.ADK_URL;
+  const adkUrl = env.ADK_URL ?? "";
 
-  // Check if ADK_URL points to localhost
   if (adkUrl.includes("localhost") || adkUrl.includes("127.0.0.1")) {
     return "localhost";
   }
 
-  // If it points to Agent Engine (aiplatform.googleapis.com)
   if (adkUrl.includes("aiplatform.googleapis.com")) {
     return "agent_engine";
   }
 
-  // Default based on manual override if set
   const backendType = process.env.NEXT_BACKEND_TYPE;
   if (backendType === "agent_engine" || backendType === "localhost") {
     return backendType;
   }
 
-  // Default to localhost for safety
   return "localhost";
 }
 
@@ -71,32 +72,38 @@ function detectDeploymentType(): BackendConfig["deploymentType"] {
  */
 export function createBackendConfig(): BackendConfig {
   const deploymentType = detectDeploymentType();
-
-  const config: BackendConfig = {
-    backendUrl: env.ADK_URL, // Use ADK_URL directly
+  return {
+    backendUrl: env.ADK_URL ?? "http://localhost:8080",
     deploymentType,
   };
-
-  return config;
 }
 
-/**
- * Get the current backend configuration
- */
-export const backendConfig = createBackendConfig();
+// Lazy — only computed when accessed at runtime
+let _backendConfig: BackendConfig | null = null;
+function getBackendConfig(): BackendConfig {
+  if (!_backendConfig) _backendConfig = createBackendConfig();
+  return _backendConfig;
+}
+
+// Export as a Proxy so existing code that reads backendConfig.xxx still works
+export const backendConfig = new Proxy({} as BackendConfig, {
+  get(_target, prop) {
+    return getBackendConfig()[prop as keyof BackendConfig];
+  },
+});
 
 /**
  * Determines if we should use Agent Engine API directly
  */
 export function shouldUseAgentEngine(): boolean {
-  return backendConfig.deploymentType === "agent_engine";
+  return getBackendConfig().deploymentType === "agent_engine";
 }
 
 /**
  * Determines if we should use localhost backend
  */
 export function shouldUseLocalhost(): boolean {
-  return backendConfig.deploymentType === "localhost";
+  return getBackendConfig().deploymentType === "localhost";
 }
 
 /**
@@ -105,10 +112,8 @@ export function shouldUseLocalhost(): boolean {
  */
 export function getEndpointForPath(path: string): string {
   if (shouldUseAgentEngine()) {
-    // For Agent Engine, always use the non-streaming query endpoint
-    return `${backendConfig.backendUrl}`;
+    return `${getBackendConfig().backendUrl}`;
   }
-
-  // For localhost, append the path to the backend URL
-  return `${backendConfig.backendUrl}${path}`;
+  return `${getBackendConfig().backendUrl}${path}`;
 }
+

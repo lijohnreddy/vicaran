@@ -1,6 +1,6 @@
 import {
   getEndpointForPath,
-  ADK_APP_NAME,
+  getADKAppName,
   backendConfig,
   shouldUseAgentEngine,
 } from "@/lib/config/backend-config";
@@ -284,7 +284,7 @@ export class AdkSessionService {
 
       const agentEngineSession: AdkSession = {
         id: sessionId,
-        app_name: ADK_APP_NAME,
+        app_name: getADKAppName(),
         user_id: userId,
         state: sessionData.output?.state || initialState || {},
         last_update_time: sessionData.output?.lastUpdateTime || Date.now(),
@@ -303,7 +303,7 @@ export class AdkSessionService {
     }
 
     // Standard ADK session creation for localhost
-    const sessionPath = `/apps/${ADK_APP_NAME}/users/${userId}/sessions`;
+    const sessionPath = `/apps/${getADKAppName()}/users/${userId}/sessions`;
     const endpoint = getEndpointForPath(sessionPath);
 
     devLog("🔍 [ADK_SESSION_SERVICE] Creating real session:", {
@@ -368,7 +368,7 @@ export class AdkSessionService {
     // Map camelCase API response to snake_case interface
     const session: AdkSession = {
       id: sessionData.id,
-      app_name: sessionData.appName || ADK_APP_NAME,
+      app_name: sessionData.appName || getADKAppName(),
       user_id: sessionData.userId || userId,
       state: sessionData.state || {},
       last_update_time: sessionData.lastUpdateTime || null,
@@ -433,7 +433,7 @@ export class AdkSessionService {
 
       const session: AdkSession = {
         id: output.id,
-        app_name: ADK_APP_NAME,
+        app_name: getADKAppName(),
         user_id: output.userId || userId,
         state: output.state || {},
         last_update_time: output.lastUpdateTime || null,
@@ -445,7 +445,7 @@ export class AdkSessionService {
 
     // Standard localhost ADK session retrieval
     const endpoint = getEndpointForPath(
-      `/apps/${ADK_APP_NAME}/users/${userId}/sessions/${sessionId}`
+      `/apps/${getADKAppName()}/users/${userId}/sessions/${sessionId}`
     );
 
     const response = await fetch(endpoint, {
@@ -467,7 +467,7 @@ export class AdkSessionService {
     // Map camelCase API response to snake_case interface and extract events
     const session: AdkSession = {
       id: sessionData.id,
-      app_name: sessionData.appName || ADK_APP_NAME,
+      app_name: sessionData.appName || getADKAppName(),
       user_id: sessionData.userId || userId,
       state: sessionData.state || {},
       last_update_time: sessionData.lastUpdateTime || null,
@@ -564,7 +564,7 @@ export class AdkSessionService {
       const sessions: AdkSession[] = output.sessions.map(
         (sessionData: AdkSessionApiResponse) => ({
           id: sessionData.id,
-          app_name: ADK_APP_NAME,
+          app_name: getADKAppName(),
           user_id: sessionData.userId || userId,
           state: sessionData.state || {},
           last_update_time: sessionData.lastUpdateTime || null,
@@ -587,7 +587,7 @@ export class AdkSessionService {
 
     // Standard localhost ADK session listing
     const endpoint = getEndpointForPath(
-      `/apps/${ADK_APP_NAME}/users/${userId}/sessions`
+      `/apps/${getADKAppName()}/users/${userId}/sessions`
     );
 
     const response = await fetch(endpoint, {
@@ -607,7 +607,7 @@ export class AdkSessionService {
     const sessions: AdkSession[] = sessionsData.map(
       (sessionData: AdkSessionApiResponse) => ({
         id: sessionData.id,
-        app_name: sessionData.appName || ADK_APP_NAME,
+        app_name: sessionData.appName || getADKAppName(),
         user_id: sessionData.userId || userId,
         state: sessionData.state || {},
         last_update_time: sessionData.lastUpdateTime || null,
@@ -685,7 +685,7 @@ export class AdkSessionService {
 
     // Standard localhost ADK session deletion
     const endpoint = getEndpointForPath(
-      `/apps/${ADK_APP_NAME}/users/${userId}/sessions/${sessionId}`
+      `/apps/${getADKAppName()}/users/${userId}/sessions/${sessionId}`
     );
 
     const response = await fetch(endpoint, {
