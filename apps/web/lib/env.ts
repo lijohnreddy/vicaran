@@ -18,7 +18,7 @@ export const env = createEnv({
     // ADK
     ADK_URL: z.string().url(),
 
-    // Google AI - for Gemini 2.5 Pro
+    // Google AI - for Gemini 3 Pro
     GEMINI_API_KEY: z.string().min(1),
 
     // Google Cloud - required only for cloud deployment
@@ -43,4 +43,7 @@ export const env = createEnv({
     // Client variables
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
+  // Skip validation during build so Vercel can build without all env vars
+  // Validation still runs at runtime when routes are actually called
+  skipValidation: !!process.env.CI || process.env.npm_lifecycle_event === "build",
 });
